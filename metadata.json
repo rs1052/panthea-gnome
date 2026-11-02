@@ -1,0 +1,9 @@
+{
+  "uuid": "panthea@local",
+  "name": "Panthea",
+  "description": "A native applications menu, permanent dock, and focused visibility controls for GNOME.",
+  "shell-version": ["50"],
+  "settings-schema": "org.gnome.shell.extensions.panthea",
+  "gettext-domain": "panthea",
+  "version": 1
+}

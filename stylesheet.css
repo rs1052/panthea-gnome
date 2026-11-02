@@ -1,0 +1,281 @@
+.panthea-launcher {
+    spacing: 10px;
+    padding: 6px;
+}
+
+.panthea-launcher .search-entry {
+    margin: 0;
+}
+
+.panthea-header {
+    spacing: 10px;
+}
+
+.panthea-toolbar {
+    spacing: 6px;
+}
+
+.panthea-app:drop {
+    background-color: -st-accent-color;
+    border-radius: 8px;
+}
+
+/* Reserve stable side margins around accessible chevron targets. */
+.panthea-page-margin {
+    width: 48px;
+}
+
+.panthea-page-arrow {
+    width: 40px;
+    height: 40px;
+    margin: 0;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    background-color: transparent;
+    box-shadow: none;
+    transition-duration: 100ms;
+}
+
+.panthea-page-arrow:hover,
+.panthea-page-arrow:focus {
+    background-color: rgba(255, 255, 255, 0.10);
+}
+
+.panthea-page-arrow:active {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+
+.panthea-page-indicators .page-indicator {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    /* Focus outlines must not inherit the native 400ms dot transition. */
+    transition-duration: 0ms;
+}
+
+.panthea-page-arrow:focus,
+.panthea-page-indicators .page-indicator:focus {
+    border-color: -st-accent-color;
+}
+
+/* Leave :overview and transition timing to the native Shell theme. */
+#panel.panthea-panel {
+    background-color: transparent;
+    color: #ffffff;
+}
+
+/* Match soft label and icon shadows only while Panel Translucency is enabled. */
+#panel.panthea-panel StLabel,
+#panel.panthea-panel:overview StLabel,
+#panel.panthea-panel .screen-recording-indicator StLabel,
+#panel.panthea-panel .screen-sharing-indicator StLabel {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+#panel.panthea-panel StIcon,
+#panel.panthea-panel:overview StIcon,
+#panel.panthea-panel StIcon.privacy-indicator,
+#panel.panthea-panel .screen-recording-indicator StIcon,
+#panel.panthea-panel .screen-sharing-indicator StIcon {
+    icon-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+/* Keep dark controls crisp; retain black shadows on light controls. */
+#panel.panthea-dark-text StLabel {
+    text-shadow: none;
+}
+
+#panel.panthea-dark-text StIcon {
+    icon-shadow: none;
+}
+
+#panel.panthea-panel.panthea-surface,
+#panthea-dock .panthea-dash .dash-background.panthea-surface {
+    background-color: rgba(0, 0, 0, 0.3);
+    color: #ffffff;
+}
+
+#panel.panthea-panel.panthea-surface-light,
+#panthea-dock .panthea-dash .dash-background.panthea-surface-light {
+    background-color: rgba(255, 255, 255, 0.5);
+    color: #333333;
+}
+
+#panel.panthea-dark-text {
+    color: #333333;
+}
+
+/* Keep native warning/privacy colors, changing only ordinary panel controls. */
+#panel.panthea-dark-text .panel-button {
+    color: #333333;
+}
+
+#panel.panthea-dark-text .panel-button.screen-recording-indicator,
+#panel.panthea-dark-text .panel-button.screen-sharing-indicator {
+    color: #fafafb;
+}
+
+#panel.panthea-dark-text .panel-button#panelActivities .workspace-dot {
+    background-color: #333333;
+}
+
+/* Feedback follows the panel foreground, not the system theme variant. */
+#panel.panthea-dark-text .panthea-panel-control:hover,
+#panel.panthea-dark-text .panthea-panel-control:focus,
+#panel.panthea-dark-text .clock-display:hover .clock,
+#panel.panthea-dark-text .clock-display:focus .clock {
+    box-shadow: inset 0 0 0 100px rgba(34, 34, 38, 0.17);
+}
+
+#panel.panthea-dark-text .panthea-panel-control:active,
+#panel.panthea-dark-text .panthea-panel-control:checked,
+#panel.panthea-dark-text .clock-display:active .clock,
+#panel.panthea-dark-text .clock-display:checked .clock {
+    box-shadow: inset 0 0 0 100px rgba(34, 34, 38, 0.28);
+}
+
+#panel.panthea-dark-text .panthea-panel-control:active:hover,
+#panel.panthea-dark-text .panthea-panel-control:checked:hover,
+#panel.panthea-dark-text .clock-display:active .clock:hover,
+#panel.panthea-dark-text .clock-display:checked .clock:hover {
+    box-shadow: inset 0 0 0 100px rgba(34, 34, 38, 0.32);
+}
+
+/* St does not support :not(). Match GNOME 50's :overview colors explicitly
+   while leaving its transition durations and panel state changes untouched. */
+#panel.panthea-panel:overview,
+#panel.panthea-panel.panthea-surface:overview,
+#panel.panthea-panel.panthea-surface-light:overview {
+    background-color: transparent;
+    color: #ffffff;
+}
+
+#panel.panthea-dark-text:overview .panel-button {
+    color: #fafafb;
+}
+
+#panel.panthea-dark-text:overview .panel-button#panelActivities .workspace-dot {
+    background-color: #fafafb;
+}
+
+#panel.panthea-dark-text:overview .panthea-panel-control:hover,
+#panel.panthea-dark-text:overview .panthea-panel-control:focus,
+#panel.panthea-dark-text:overview .clock-display:hover .clock,
+#panel.panthea-dark-text:overview .clock-display:focus .clock {
+    box-shadow: inset 0 0 0 100px rgba(250, 250, 251, 0.17);
+}
+
+#panel.panthea-dark-text:overview .panthea-panel-control:active,
+#panel.panthea-dark-text:overview .panthea-panel-control:checked,
+#panel.panthea-dark-text:overview .clock-display:active .clock,
+#panel.panthea-dark-text:overview .clock-display:checked .clock {
+    box-shadow: inset 0 0 0 100px rgba(250, 250, 251, 0.28);
+}
+
+#panel.panthea-dark-text:overview .panthea-panel-control:active:hover,
+#panel.panthea-dark-text:overview .panthea-panel-control:checked:hover,
+#panel.panthea-dark-text:overview .clock-display:active .clock:hover,
+#panel.panthea-dark-text:overview .clock-display:checked .clock:hover {
+    box-shadow: inset 0 0 0 100px rgba(250, 250, 251, 0.32);
+}
+
+.panthea-body {
+    spacing: 12px;
+}
+
+.panthea-app {
+    padding: 8px;
+    border-radius: 12px;
+    font-weight: normal;
+}
+
+.panthea-app StBoxLayout {
+    spacing: 8px;
+}
+
+.panthea-app StLabel {
+    text-align: center;
+}
+
+.panthea-categories {
+    spacing: 2px;
+}
+
+.panthea-category {
+    padding: 8px 14px;
+    font-weight: normal;
+    text-align: left;
+}
+
+.panthea-category:checked {
+    font-weight: 500;
+}
+
+.panthea-empty {
+    font-weight: normal;
+}
+
+/* Compact outer padding, retaining native corners and icon spacing. */
+#panthea-dock .panthea-dash .dash-background {
+    padding: 8px 10px;
+    margin-bottom: 6px;
+}
+
+/* The native Dash fills icon tiles with its own background color, which reads
+   as a solid gray box once that background is translucent. Use hover feedback
+   instead, matching Dash to Dock. */
+#panthea-dock .dash-item-container .overview-tile .overview-icon,
+#panthea-dock .dash-item-container .show-apps .overview-icon {
+    background-color: transparent;
+}
+
+#panthea-dock .dash-item-container .overview-tile:hover .overview-icon,
+#panthea-dock .dash-item-container .show-apps:hover .overview-icon {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+#panthea-dock .panthea-dark-dock .show-apps .overview-icon {
+    color: #ffffff;
+}
+
+/* Keep native running-state visibility and theme colors. The even diameter
+   centers on icon pixels; the offset leaves 4px below the icon at every size. */
+#panthea-dock .dash-item-container .app-grid-running-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 6px;
+    offset-y: -1px;
+}
+
+#panthea-dock .panthea-dark-dock .app-grid-running-dot {
+    background-color: #ffffff;
+}
+
+#panthea-dock .panthea-dark-dock .dash-separator {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+#panthea-dock .panthea-dark-dock .overview-tile:hover .overview-icon,
+#panthea-dock .panthea-dark-dock .show-apps:hover .overview-icon {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+#panthea-dock .panthea-light-dock .show-apps .overview-icon {
+    color: #333333;
+}
+
+#panthea-dock .panthea-light-dock .app-grid-running-dot {
+    background-color: #333333;
+}
+
+#panthea-dock .panthea-light-dock .dash-separator {
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+#panthea-dock .panthea-light-dock .overview-tile:hover .overview-icon,
+#panthea-dock .panthea-light-dock .show-apps:hover .overview-icon {
+    background-color: rgba(0, 0, 0, 0.12);
+}

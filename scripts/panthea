@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+uuid=panthea@local
+bundle="$root/dist/$uuid.shell-extension.zip"
+
+cleanup_runtime() {
+    for mount in "$runtime/doc" "$runtime/gvfs"; do
+        if mountpoint -q "$mount"; then
+            fusermount3 -u "$mount" || true
+        fi
+    done
+    rm -rf -- "$runtime"
+}
+
+build() {
+    mkdir -p "$root/dist"
+    glib-compile-schemas --strict --dry-run "$root/schemas"
+    gnome-extensions pack --force --out-dir="$root/dist" \
+        --extra-source=lib --extra-source=shared --extra-source=LICENSE "$root"
+}
+
+case "${1:-check}" in
+    check)
+        glib-compile-schemas --strict --dry-run "$root/schemas"
+        while IFS= read -r -d '' file; do
+            node --input-type=module --check < "$file"
+        done < <(find "$root" -path "$root/.git" -prune -o -name '*.js' -print0)
+        bash -n "$root/scripts/panthea"
+        gjs -m "$root/tests/model.js"
+        ;;
+    build)
+        build
+        printf 'Built %s\n' "$bundle"
+        ;;
+    test)
+        build
+        mkdir -p /tmp/opencode/panthea-tests
+        mode=--headless
+        if [[ $# -ge 2 ]]; then
+            mode=$2
+            shift 2
+        else
+            shift
+        fi
+        case "$mode" in --headless|--devkit) ;; *) printf 'Use --headless or --devkit\n' >&2; exit 2 ;; esac
+        extra=()
+        test_script="$root/tests/shell.js"
+        for argument in "$@"; do
+            case "$argument" in
+                --no-animations) extra+=(--disable-animations) ;;
+                --layout) test_script="$root/tests/layoutShell.js" ;;
+                *) printf 'Unknown test option: %s\n' "$argument" >&2; exit 2 ;;
+            esac
+        done
+        runtime=$(mktemp -d /tmp/opencode/panthea-runtime.XXXXXXXX)
+        trap cleanup_runtime EXIT
+        host_runtime=${XDG_RUNTIME_DIR:?}
+        host_wayland=${WAYLAND_DISPLAY:-wayland-0}
+        if [[ "$host_wayland" != /* ]]; then host_wayland="${XDG_RUNTIME_DIR:?}/$host_wayland"; fi
+        TMPDIR=/tmp/opencode XDG_RUNTIME_DIR="$runtime" WAYLAND_DISPLAY="$host_wayland" \
+            PIPEWIRE_RUNTIME_DIR="${PIPEWIRE_RUNTIME_DIR:-$host_runtime}" \
+            PULSE_SERVER="${PULSE_SERVER:-unix:$host_runtime/pulse/native}" GIO_USE_VFS=local \
+            PANTHEA_TEST_OUTPUT=/tmp/opencode/panthea-tests \
+            timeout --signal=TERM --kill-after=10s 120s \
+            dbus-run-session gnome-shell-test-tool "$mode" --extra-filter=org.gnome.Shell.Extensions \
+                --wrap 'env -u SHELL_BACKGROUND_IMAGE' \
+                "${extra[@]}" --extension "$bundle" "$test_script"
+        ;;
+    dev)
+        build
+        if ! test -x /usr/libexec/mutter-devkit; then
+            printf 'Install the nested-session dependency: sudo dnf install mutter-devkit\n' >&2
+            exit 1
+        fi
+        session=$(mktemp -d /tmp/opencode/panthea-dev.XXXXXXXX)
+        runtime="$session/runtime"
+        trap 'cleanup_runtime; rm -rf -- "$session"' EXIT
+        mkdir -p "$session"/{cache,config,data,runtime}
+        chmod 700 "$session/runtime"
+        host_wayland=${WAYLAND_DISPLAY:-wayland-0}
+        host_runtime=${XDG_RUNTIME_DIR:?}
+        if [[ "$host_wayland" != /* ]]; then host_wayland="${XDG_RUNTIME_DIR:?}/$host_wayland"; fi
+        XDG_CACHE_HOME="$session/cache" XDG_CONFIG_HOME="$session/config" XDG_DATA_HOME="$session/data" \
+            XDG_RUNTIME_DIR="$session/runtime" WAYLAND_DISPLAY="$host_wayland" \
+            PIPEWIRE_RUNTIME_DIR="${PIPEWIRE_RUNTIME_DIR:-$host_runtime}" \
+            PULSE_SERVER="${PULSE_SERVER:-unix:$host_runtime/pulse/native}" GIO_USE_VFS=local \
+            GSETTINGS_BACKEND=keyfile dbus-run-session bash -c '
+                set -e
+                gnome-extensions install "$1"
+                gsettings set org.gnome.shell enabled-extensions "[\"panthea@local\"]"
+                exec gnome-shell --devkit --wayland
+            ' bash "$bundle"
+        ;;
+    install)
+        build
+        gnome-extensions install --force "$bundle"
+        printf 'Installed. Log out and back in, then run: gnome-extensions enable %s\n' "$uuid"
+        ;;
+    remove)
+        gnome-extensions disable "$uuid"
+        gnome-extensions uninstall "$uuid"
+        ;;
+    *)
+        printf 'Usage: bash scripts/panthea {check|build|test [--headless|--devkit] [--layout] [--no-animations]|dev|install|remove}\n' >&2
+        exit 2
+        ;;
+esac

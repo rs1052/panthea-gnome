@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.panthea" path="/org/gnome/shell/extensions/panthea/">
+    <key name="applications-enabled" type="b">
+      <default>true</default>
+      <summary>Show the Applications menu</summary>
+    </key>
+    <key name="applications-view" type="s">
+      <choices><choice value="grid"/><choice value="list"/></choices>
+      <default>'grid'</default>
+      <summary>Last used application view</summary>
+    </key>
+    <key name="dock-icon-size" type="i">
+      <range min="0" max="2"/>
+      <default>1</default>
+      <summary>Dock icon size: Small, Medium, or Large</summary>
+    </key>
+    <key name="dock-hide-mode" type="s">
+      <choices>
+        <choice value="never"/>
+        <choice value="focused-maximized"/>
+        <choice value="focused-overlap"/>
+        <choice value="any-overlap"/>
+        <choice value="unused"/>
+      </choices>
+      <default>'never'</default>
+      <summary>When to hide the dock</summary>
+    </key>
+    <key name="show-apps-button" type="b">
+      <default>true</default>
+      <summary>Show the dock's Show Apps button</summary>
+    </key>
+    <key name="automatic-translucency" type="b">
+      <default>true</default>
+      <summary>Adapt panel translucency to the wallpaper and use a translucent dock</summary>
+    </key>
+    <key name="show-qs-power-mode" type="b"><default>true</default><summary>Show Power Mode in Quick Settings</summary></key>
+    <key name="show-qs-dark-style" type="b"><default>true</default><summary>Show Dark Style in Quick Settings</summary></key>
+    <key name="show-qs-night-light" type="b"><default>true</default><summary>Show Night Light in Quick Settings</summary></key>
+    <key name="show-qs-do-not-disturb" type="b"><default>true</default><summary>Show Do Not Disturb in Quick Settings</summary></key>
+    <key name="show-qs-keyboard-backlight" type="b"><default>true</default><summary>Show Keyboard Backlight in Quick Settings</summary></key>
+    <key name="show-qs-airplane-mode" type="b"><default>true</default><summary>Show Airplane Mode in Quick Settings</summary></key>
+    <key name="show-panel-activities" type="b"><default>true</default><summary>Show Activities</summary></key>
+    <key name="show-panel-date" type="b"><default>true</default><summary>Show the clock and calendar</summary></key>
+    <key name="show-panel-notifications" type="b"><default>true</default><summary>Show the notification dot</summary></key>
+    <key name="show-panel-keyboard" type="b"><default>true</default><summary>Show the keyboard layout indicator</summary></key>
+    <key name="show-panel-accessibility" type="b"><default>true</default><summary>Show the accessibility menu</summary></key>
+    <key name="show-panel-quick-settings" type="b"><default>true</default><summary>Show the Quick Settings button</summary></key>
+    <key name="show-panel-network" type="b"><default>true</default><summary>Show the network indicator</summary></key>
+    <key name="show-panel-bluetooth" type="b"><default>true</default><summary>Show the Bluetooth indicator</summary></key>
+    <key name="show-panel-audio" type="b"><default>true</default><summary>Show the audio output indicator</summary></key>
+    <key name="show-panel-power-icon" type="b"><default>true</default><summary>Show the power icon</summary></key>
+    <key name="show-panel-power-mode" type="b"><default>true</default><summary>Show the power-mode indicator</summary></key>
+    <key name="show-panel-night-light" type="b"><default>true</default><summary>Show the Night Light indicator</summary></key>
+    <key name="show-panel-screen-sharing" type="b"><default>true</default><summary>Show the screen-sharing indicator</summary></key>
+    <key name="show-panel-screen-recording" type="b"><default>true</default><summary>Show the screen-recording indicator</summary></key>
+  </schema>
+</schemalist>
