@@ -307,6 +307,14 @@ async function checkOverviewPanel(appearance) {
     const duration = node.get_transition_duration();
     Main.overview.show();
     await settle();
+    const dock = appearance._dock;
+    assert(!dock.dash.visible && dock.nativeDash.mapped,
+        'Overview uses only GNOME Dash, leaving window captions above it');
+    assert(!dock.nativeDash.has_style_class_name('panthea-dash') &&
+        !dock.nativeDash._background.has_style_class_name('panthea-surface') &&
+        !dock.nativeDash._background.has_style_class_name('panthea-surface-light') &&
+        !dock.nativeDash.height_set,
+    'native Overview dash retains default styling and height');
     assert(Main.panel.has_style_pseudo_class('overview') &&
         Main.panel.get_theme_node().get_background_color().alpha === 0,
     'native Overview styling makes the panel fully transparent');
@@ -320,6 +328,7 @@ async function checkOverviewPanel(appearance) {
         'Overview retains the native panel transition duration');
     Main.overview.hide();
     await settle();
+    assert(dock.dash.visible, 'leaving Overview restores the desktop dash');
     assert(Main.panel.get_theme_node().get_background_color().alpha === alpha &&
         Main.panel.get_style() === style && Main.panel.get_style_class_name() === classes,
     'leaving Overview restores the desktop panel without reapplying styles');
@@ -406,7 +415,7 @@ export async function run() {
         'Applications remains after Activities when startup visibility is restored');
     }
     assert(instance._dock.actor.visible, 'dock is visible');
-    assert(!Main.overview.dash.visible, 'original Overview dash is hidden');
+    assert(Main.overview.dash.visible, 'original Overview dash is retained');
     const dockHeight = instance._dock.actor.height;
     const monitor = Main.layoutManager.primaryMonitor;
     assert(instance._dock.actor.y + dockHeight === monitor.y + monitor.height, 'dock touches the primary monitor bottom');
@@ -734,6 +743,8 @@ export async function run() {
     await settle();
     assert(!showAppsButton.visible && !dash._showAppsIcon.visible && dash.width < shownWidth,
         'hiding Show Apps reclaims its dock width');
+    assert(instance._dock.nativeDash.showAppsButton.visible && instance._dock.nativeDash._showAppsIcon.visible,
+        'desktop Show Apps preference leaves the native Overview button unchanged');
     await screenshot('dock-show-apps-hidden');
     const originalMaxWidth = dash._maxWidth;
     dash._maxWidth = 230;
@@ -1014,6 +1025,31 @@ export async function run() {
     await screenshot('maximized-window');
     Main.overview.show();
     await until(() => Main.overview.visible, 'Overview opens with a maximized window');
+    await settle();
+    const findPreview = actor => {
+        if (actor.metaWindow === maximized && actor.showOverlay)
+            return actor;
+        for (const child of actor.get_children()) {
+            const found = findPreview(child);
+            if (found)
+                return found;
+        }
+        return null;
+    };
+    const preview = findPreview(Main.layoutManager.overviewGroup);
+    assert(preview, 'Overview retains the native window preview');
+    preview.showOverlay(false);
+    await settle();
+    const caption = bounds(preview._title);
+    const captionActor = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE,
+        caption.x + caption.width / 2, caption.y + caption.height / 2);
+    assert(preview._title.mapped && preview._title.contains(captionActor),
+        'native window title is unobstructed above the Overview dash');
+    const nativeButton = bounds(instance._dock.nativeDash.showAppsButton);
+    const pickedButton = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE,
+        nativeButton.x + nativeButton.width / 2, nativeButton.y + nativeButton.height / 2);
+    assert(instance._dock.nativeDash.showAppsButton.contains(pickedButton),
+        'native Overview dash remains clickable');
     assert(instance._appearance.panelState === 'translucent',
         'Overview preserves the maximized desktop state');
     assert(Main.panel.get_theme_node().get_background_color().alpha === 0,
@@ -1101,7 +1137,8 @@ export async function run() {
     assert(hiding.hidden, 'unused mode hides without overlapping windows');
     Main.overview.show();
     await settle();
-    assert(!hiding.hidden, 'Overview reveals the dock in automatic modes');
+    assert(!instance._dock.dash.visible && instance._dock.nativeDash.mapped,
+        'Overview uses native Dash even when the desktop dock is automatically hidden');
     Main.overview.hide();
     await settle();
     assert(hiding.hidden, 'leaving Overview restores automatic hiding');
