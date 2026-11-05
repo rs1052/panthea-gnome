@@ -35,8 +35,8 @@ function pages(view) {
 }
 function popupPages(nativePages) {
     const items = nativePages.flat();
-    return Array.from({length: Math.ceil(items.length / 18)}, (_, index) =>
-        items.slice(index * 18, (index + 1) * 18));
+    return Array.from({length: Math.ceil(items.length / 15)}, (_, index) =>
+        items.slice(index * 15, (index + 1) * 15));
 }
 async function screenshot(name) {
     const output = GLib.getenv('PANTHEA_TEST_OUTPUT');
@@ -141,10 +141,10 @@ export async function run() {
     assert(JSON.stringify(geometry()) === JSON.stringify(firstGeometry),
         `first-open geometry survives visiting Overview (${firstGeometry} -> ${geometry()})`);
     assert(JSON.stringify(firstOrder) === JSON.stringify(popupPages(originalOrder)),
-        'first-open order matches Overview repaginated into 18-item pages');
-    assert(display._grid.layoutManager.columnsPerPage === 6 &&
+        'first-open order matches Overview repaginated into 15-item pages');
+    assert(display._grid.layoutManager.columnsPerPage === 5 &&
         display._grid.layoutManager.rowsPerPage === 3,
-    'first-open grid uses six columns and three rows');
+    'first-open grid uses five columns and three rows');
     assert(JSON.stringify(pages(display)) === JSON.stringify(popupPages(originalOrder)),
         'initial application and folder order follows Overview');
     assert(global.settings.get_value('app-picker-layout').equal(savedAtStart),
@@ -162,16 +162,16 @@ export async function run() {
     const scaledOrder = await nativePages();
     await show();
     assert(JSON.stringify(geometry()) === JSON.stringify(scaledGeometry) &&
-        display._grid.layoutManager.columnsPerPage === 6 &&
+        display._grid.layoutManager.columnsPerPage === 5 &&
         display._grid.layoutManager.rowsPerPage === 3,
-    `scaled six-by-three geometry stays stable (${scaledGeometry} -> ${geometry()})`);
+    `scaled five-by-three geometry stays stable (${scaledGeometry} -> ${geometry()})`);
     assert(JSON.stringify(pages(display)) === JSON.stringify(popupPages(scaledOrder)),
         'scaled popup follows native order with continuous pages');
     await screenshot('applications-scaled');
     const scaledItems = display._grid.getItemsAtPage(0);
-    for (const index of [0, 6]) {
+    for (const index of [0, 5]) {
         const [, y] = scaledItems[index].get_transformed_position();
-        const [, nextY] = scaledItems[index + 6].get_transformed_position();
+        const [, nextY] = scaledItems[index + 5].get_transformed_position();
         assert(y + scaledItems[index].height <= nextY,
             'scaled grid rows do not overlap');
     }
@@ -222,9 +222,9 @@ export async function run() {
     const overflowOrder = await nativePages();
     await show();
     assert(overflowOrder.map(page => page.length).join(',') === '24,12' &&
-        pages(display).map(page => page.length).join(',') === '18,18' &&
+        pages(display).map(page => page.length).join(',') === '15,15,6' &&
         JSON.stringify(pages(display)) === JSON.stringify(popupPages(overflowOrder)),
-    'native 24 + 12 pages become two full 18-item popup pages without losing order');
+    'native 24 + 12 pages become 15 + 15 + 6 popup pages without losing order');
     assert(global.settings.get_value('app-picker-layout').equal(overflowLayout),
         'packing native overflow does not rewrite saved page boundaries');
     global.settings.set_strv('favorite-apps', []);
@@ -237,20 +237,26 @@ export async function run() {
     assert(JSON.stringify(pages(display)) === JSON.stringify(popupPages(initialPages)),
         'Panthea packs sparse native pages continuously in native order');
     assert(global.settings.get_value('app-picker-layout').equal(initial), 'opening does not rewrite layout');
-    assert(display._grid.itemsPerPage === 18, 'popup capacity is 18 without changing Overview');
-    assert(display._grid.layoutManager.columnsPerPage === 6 &&
-        display._grid.layoutManager.rowsPerPage === 3, 'popup uses six columns and three rows');
+    assert(display._grid.itemsPerPage === 15, 'popup capacity is 15 without changing Overview');
+    assert(display._grid.layoutManager.columnsPerPage === 5 &&
+        display._grid.layoutManager.rowsPerPage === 3, 'popup uses five columns and three rows');
     const [searchX] = launcher._search.get_transformed_position();
     const [rootX] = launcher._root.get_transformed_position();
     assert(Math.abs(searchX + launcher._search.width / 2 - rootX - launcher._root.width / 2) <= 1,
         'search is horizontally centered above the grid');
     assert(Math.abs(launcher._search.width - 312 * theme.scale_factor) <= 1,
-        'search retains its centered 312px width in the narrower popup');
+        'search retains its centered 312px width');
+    const workArea = Main.layoutManager.getWorkAreaForMonitor(
+        Main.layoutManager.findMonitorForActor(launcher).index);
+    assert(launcher._root.width === Math.min(672 * theme.scale_factor, workArea.width * 0.75) &&
+        display.height === Math.min(308 * theme.scale_factor,
+            workArea.height - launcher._search.get_preferred_height(launcher._search.width)[1] -
+            64 * theme.scale_factor), 'popup retains its original browsing dimensions');
     assert(launcher._search.contains(global.stage.key_focus), 'search automatically receives focus');
     const monitor = Main.layoutManager.findMonitorForActor(launcher);
     assert(launcher.menu.actor.width < monitor.width * 0.85 &&
         launcher.menu.actor.height < monitor.height * 0.85, 'compact popup leaves desktop space visible');
-    assert(display._grid.layoutManager.iconSize === 48, 'compact grid retains readable 48px icons');
+    assert(display._grid.layoutManager.iconSize === 56, 'roomier grid uses 56px icons');
     assert(display._nextPageArrow.get_theme_node().get_background_color().alpha === 0,
         'resting arrows have no circular background');
     const scale = theme.scale_factor;
@@ -260,12 +266,14 @@ export async function run() {
     'side gutters only reserve arrows and small margins');
     assert(display._nextPageArrow.width === 40 * scale &&
         display._nextPageArrow.height === 40 * scale, 'arrow button dimensions remain unchanged');
-    assert(display._grid.layoutManager.rowSpacing === 12 * scale &&
-        display._grid.layoutManager.columnSpacing === 12 * scale, 'tiles use roomier native grid spacing');
+    assert(display._grid.layoutManager.rowSpacing === 14 * scale &&
+        display._grid.layoutManager.columnSpacing === 24 * scale, 'tiles use roomier native grid spacing');
     const firstTile = display._grid.getItemsAtPage(0)[0];
     const tileTheme = firstTile.get_theme_node();
-    assert([St.Side.TOP, St.Side.RIGHT, St.Side.BOTTOM, St.Side.LEFT].every(side =>
-        tileTheme.get_padding(side) === 6 * scale), 'app buttons have larger padding');
+    assert(tileTheme.get_padding(St.Side.TOP) === 4 * scale &&
+        tileTheme.get_padding(St.Side.BOTTOM) === 4 * scale &&
+        tileTheme.get_padding(St.Side.LEFT) === 4 * scale &&
+        tileTheme.get_padding(St.Side.RIGHT) === 4 * scale, 'app padding fits larger icons within the unchanged height');
     assert(padding.left === 44 * scale && padding.right === 44 * scale,
         'gutters reserve only the unchanged arrow width and 4px inner padding');
     assert(launcher._root.get_theme_node().get_padding(St.Side.LEFT) === 6 * scale &&
@@ -275,13 +283,13 @@ export async function run() {
     const searchGap = firstTile.get_transformed_position()[1] - searchBottom;
     assert(searchGap >= 8 * scale && searchGap <= 28 * scale,
         'first row sits comfortably below search without excess vertical space');
-    const lastColumn = display._grid.getItemsAtPage(0)[5];
+    const lastColumn = display._grid.getItemsAtPage(0)[4];
     const gridCenter = (firstTile.get_transformed_position()[0] +
         lastColumn.get_transformed_position()[0] + lastColumn.width) / 2;
     assert(Math.abs(gridCenter - rootX - launcher._root.width / 2) <= 1,
-        'six application columns are centered beneath search');
+        'five application columns are centered beneath search');
     const indicators = display._pageIndicators;
-    const lastRow = display._grid.getItemsAtPage(0)[12];
+    const lastRow = display._grid.getItemsAtPage(0)[10];
     const gridBottom = lastRow.get_transformed_position()[1] + lastRow.height;
     const paginationGap = indicators.get_transformed_position()[1] - gridBottom;
     assert(paginationGap >= 0 && paginationGap <= 28 * scale,
@@ -292,6 +300,15 @@ export async function run() {
         display._nextPageArrow.width + 48 * scale,
     'visible grid starts near the arrow gutter instead of centering in excess space');
     const tileSize = firstTile.get_size();
+    for (const [index, item] of display._grid.getItemsAtPage(0).entries()) {
+        assert(item.get_size().every((size, axis) => Math.abs(size - tileSize[axis]) <= 1),
+            `tile ${index + 1} has uniform dimensions`);
+        const [x, y] = item.get_transformed_position();
+        const [columnX] = display._grid.getItemsAtPage(0)[index % 5].get_transformed_position();
+        const [, rowY] = display._grid.getItemsAtPage(0)[Math.floor(index / 5) * 5].get_transformed_position();
+        assert(Math.abs(x - columnX) <= 1 && Math.abs(y - rowY) <= 1,
+            `tile ${index + 1} aligns with its row and column`);
+    }
     firstTile.add_style_pseudo_class('hover');
     await settle();
     assert(firstTile.get_size().every((size, index) => size === tileSize[index]) &&

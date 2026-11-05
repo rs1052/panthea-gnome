@@ -500,9 +500,10 @@ export async function run() {
     assert(launcher._search.get_secondary_icon()?.icon_name === 'edit-clear-symbolic',
         'populated search has the native clear icon');
     const tile = launcher._visibleButtons[0];
-    const extraBrowsingPadding = 2 * St.ThemeContext.get_for_stage(global.stage).scale_factor;
-    assert(Math.abs(bounds(tile.icon.icon).y + extraBrowsingPadding - browsingIconTop) <= 1,
-        'search keeps its original gap while browsing icons gain 2px of button padding');
+    const iconSizeGap = (tile.icon.iconSize - gridItems()[0].icon.iconSize) / 2 *
+        St.ThemeContext.get_for_stage(global.stage).scale_factor;
+    assert(Math.abs(bounds(tile.icon.icon).y - iconSizeGap - browsingIconTop) <= 1,
+        'search keeps its original gap with independently sized browsing icons');
     assert(launcher._search.contains(global.stage.key_focus) && tile.has_style_pseudo_class('selected'),
         'the top result is selected automatically while typing in search');
     const selectionColor = tile.get_theme_node().get_background_color();

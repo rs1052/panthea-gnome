@@ -8,10 +8,10 @@
 }
 
 .panthea-app-display .icon-grid {
-    row-spacing: 12px;
-    column-spacing: 12px;
-    max-row-spacing: 12px;
-    max-column-spacing: 12px;
+    row-spacing: 14px;
+    column-spacing: 24px;
+    max-row-spacing: 14px;
+    max-column-spacing: 24px;
     page-padding-top: 4px;
     page-padding-bottom: 4px;
     page-padding-left: 4px;
@@ -20,7 +20,7 @@
 
 .panthea-app-display .overview-tile {
     color: inherit;
-    padding: 6px;
+    padding: 4px;
     border-radius: 12px;
     font-size: 0.9em;
     transition-duration: 100ms;
