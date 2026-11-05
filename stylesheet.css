@@ -120,13 +120,13 @@
 }
 
 #panel.panthea-panel.panthea-surface,
-#panthea-dock .panthea-dash .dash-background.panthea-surface {
+.panthea-dash .dash-background.panthea-surface {
     background-color: rgba(0, 0, 0, 0.4);
     color: #ffffff;
 }
 
 #panel.panthea-panel.panthea-surface-light,
-#panthea-dock .panthea-dash .dash-background.panthea-surface-light {
+.panthea-dash .dash-background.panthea-surface-light {
     background-color: rgba(255, 255, 255, 0.5);
     color: #333333;
 }
@@ -214,7 +214,7 @@
 }
 
 /* Compact outer padding, retaining native corners and icon spacing. */
-#panthea-dock .panthea-dash .dash-background {
+.panthea-dash .dash-background {
     padding: 8px 10px;
     margin-bottom: 6px;
 }
@@ -222,55 +222,55 @@
 /* The native Dash fills icon tiles with its own background color, which reads
    as a solid gray box once that background is translucent. Use hover feedback
    instead, matching Dash to Dock. */
-#panthea-dock .dash-item-container .overview-tile .overview-icon,
-#panthea-dock .dash-item-container .show-apps .overview-icon {
+.panthea-dash .dash-item-container .overview-tile .overview-icon,
+.panthea-dash .dash-item-container .show-apps .overview-icon {
     background-color: transparent;
 }
 
-#panthea-dock .dash-item-container .overview-tile:hover .overview-icon,
-#panthea-dock .dash-item-container .show-apps:hover .overview-icon {
+.panthea-dash .dash-item-container .overview-tile:hover .overview-icon,
+.panthea-dash .dash-item-container .show-apps:hover .overview-icon {
     background-color: rgba(255, 255, 255, 0.18);
 }
 
-#panthea-dock .panthea-dark-dock .show-apps .overview-icon {
+.panthea-dash.panthea-dark-dock .show-apps .overview-icon {
     color: #ffffff;
 }
 
-/* Keep native running-state visibility and theme colors. The even diameter
-   centers on icon pixels; the offset leaves 4px below the icon at every size. */
-#panthea-dock .dash-item-container .app-grid-running-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 6px;
-    offset-y: -1px;
+/* Fit the indicator inside the hover tile's bottom padding at every icon size,
+   retaining native running-state visibility and theme colors. */
+.panthea-dash .dash-item-container .app-grid-running-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 4px;
+    offset-y: -6px;
 }
 
-#panthea-dock .panthea-dark-dock .app-grid-running-dot {
+.panthea-dash.panthea-dark-dock .app-grid-running-dot {
     background-color: #ffffff;
 }
 
-#panthea-dock .panthea-dark-dock .dash-separator {
+.panthea-dash.panthea-dark-dock .dash-separator {
     background-color: rgba(255, 255, 255, 0.2);
 }
 
-#panthea-dock .panthea-dark-dock .overview-tile:hover .overview-icon,
-#panthea-dock .panthea-dark-dock .show-apps:hover .overview-icon {
+.panthea-dash.panthea-dark-dock .overview-tile:hover .overview-icon,
+.panthea-dash.panthea-dark-dock .show-apps:hover .overview-icon {
     background-color: rgba(255, 255, 255, 0.18);
 }
 
-#panthea-dock .panthea-light-dock .show-apps .overview-icon {
+.panthea-dash.panthea-light-dock .show-apps .overview-icon {
     color: #333333;
 }
 
-#panthea-dock .panthea-light-dock .app-grid-running-dot {
+.panthea-dash.panthea-light-dock .app-grid-running-dot {
     background-color: #333333;
 }
 
-#panthea-dock .panthea-light-dock .dash-separator {
+.panthea-dash.panthea-light-dock .dash-separator {
     background-color: rgba(0, 0, 0, 0.2);
 }
 
-#panthea-dock .panthea-light-dock .overview-tile:hover .overview-icon,
-#panthea-dock .panthea-light-dock .show-apps:hover .overview-icon {
+.panthea-dash.panthea-light-dock .overview-tile:hover .overview-icon,
+.panthea-dash.panthea-light-dock .show-apps:hover .overview-icon {
     background-color: rgba(0, 0, 0, 0.12);
 }

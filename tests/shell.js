@@ -99,23 +99,25 @@ function checkDockPadding(dock) {
     assert(node.get_border_radius(0) > 0, 'compact dock retains rounded corners');
 }
 
-function checkRunningIndicators(dock) {
+function checkRunningIndicators(dash) {
     const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
-    const background = bounds(dock.background);
-    const apps = dock.dash._box.get_children().map(item => item.child)
+    const apps = dash._box.get_children().map(item => item.child)
         .filter(app => app?._dot?.visible);
     assert(apps.length > 0, 'running applications have native indicators');
     for (const app of apps) {
         const dot = bounds(app._dot);
         const icon = bounds(app.icon.icon);
-        assert(Math.abs(dot.width - 6 * scale) < 1 && Math.abs(dot.height - 6 * scale) < 1,
-            'running indicators are subtle 6px dots');
+        const highlight = bounds(app.icon);
+        assert(Math.abs(dot.width - 4 * scale) < 1 && Math.abs(dot.height - 4 * scale) < 1,
+            'running indicators are subtle 4px dots');
         assert(Math.abs(dot.x + dot.width / 2 - icon.x - icon.width / 2) <= 0.5 * scale,
             'running indicators are centered beneath their icons');
-        assert(Math.abs(dot.y - icon.y - icon.height - 4 * scale) <= 1 &&
-            Math.abs(background.y + background.height - dot.y - dot.height - 7 * scale) <= 1,
-        `running indicators keep 4px icon and 7px bottom gaps at size ${dock.dash.iconSize}, scale ${scale}`);
+        assert(dot.y >= icon.y + icon.height &&
+            dot.x >= highlight.x && dot.x + dot.width <= highlight.x + highlight.width &&
+            dot.y + dot.height <= highlight.y + highlight.height,
+        `running indicators fit below icons inside hover highlights at size ${dash.iconSize}, scale ${scale}`);
     }
+    return apps[0];
 }
 
 function checkLauncherAnchor(launcher) {
@@ -310,11 +312,11 @@ async function checkOverviewPanel(appearance) {
     const dock = appearance._dock;
     assert(!dock.dash.visible && dock.nativeDash.mapped,
         'Overview uses only GNOME Dash, leaving window captions above it');
-    assert(!dock.nativeDash.has_style_class_name('panthea-dash') &&
-        !dock.nativeDash._background.has_style_class_name('panthea-surface') &&
-        !dock.nativeDash._background.has_style_class_name('panthea-surface-light') &&
-        !dock.nativeDash.height_set,
-    'native Overview dash retains default styling and height');
+    assert(dock.nativeDash.has_style_class_name('panthea-dash') &&
+        dock.nativeDash.iconSize === dock.dash.iconSize &&
+        dock.nativeDash._background.get_theme_node().get_background_color().equal(
+            dock.background.get_theme_node().get_background_color()),
+    'native Overview dash matches desktop styling, icon size and background');
     assert(Main.panel.has_style_pseudo_class('overview') &&
         Main.panel.get_theme_node().get_background_color().alpha === 0,
     'native Overview styling makes the panel fully transparent');
@@ -743,8 +745,8 @@ export async function run() {
     await settle();
     assert(!showAppsButton.visible && !dash._showAppsIcon.visible && dash.width < shownWidth,
         'hiding Show Apps reclaims its dock width');
-    assert(instance._dock.nativeDash.showAppsButton.visible && instance._dock.nativeDash._showAppsIcon.visible,
-        'desktop Show Apps preference leaves the native Overview button unchanged');
+    assert(!instance._dock.nativeDash.showAppsButton.visible && !instance._dock.nativeDash._showAppsIcon.visible,
+        'Show Apps preference also hides the native Overview button');
     await screenshot('dock-show-apps-hidden');
     const originalMaxWidth = dash._maxWidth;
     dash._maxWidth = 230;
@@ -974,14 +976,13 @@ export async function run() {
     for (const size of [0, 2, 1]) {
         settings.set_int('dock-icon-size', size);
         await settle();
-        checkRunningIndicators(instance._dock);
-        await screenshot(`dock-running-indicators-${size}`);
+        checkRunningIndicators(instance._dock.dash);
     }
     const indicatorScale = St.ThemeContext.get_for_stage(global.stage);
     const savedIndicatorScale = indicatorScale.scale_factor;
     indicatorScale.scale_factor = 2;
     await settle();
-    checkRunningIndicators(instance._dock);
+    checkRunningIndicators(instance._dock.dash);
     indicatorScale.scale_factor = savedIndicatorScale;
     await settle();
     const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
@@ -1011,7 +1012,7 @@ export async function run() {
         assert(instance._dock.actor.height < uncrowdedHeight, 'a crowded dock releases unused reserved height');
         checkDockPadding(instance._dock);
         print(`CROWDED DOCK GAP: ${dockGap()} logical pixels`);
-        checkRunningIndicators(instance._dock);
+        checkRunningIndicators(instance._dock.dash);
         assert(dockGap() >= 1 && dockGap() <= 2, 'crowded docks retain the 1–2px maximized-window gap');
         await screenshot('crowded-dock');
     } finally {
@@ -1245,6 +1246,37 @@ export async function run() {
     assert(nativeDuration > 0 && !transientDefault &&
         Main.panel.get_theme_node().get_background_color().to_string() === windowPanelColor,
     'rapid state changes keep extension styles installed and native transition timing without default-color targets');
+    // Exercise size changes at 2x after the work-area checks: Shell can retain
+    // stale dock height after synthetic scale changes, independently of dots.
+    try {
+        for (const scaleFactor of [1, 2]) {
+            indicatorScale.scale_factor = scaleFactor;
+            for (const size of [0, 2, 1]) {
+                settings.set_int('dock-icon-size', size);
+                await settle();
+                for (const overview of [false, true]) {
+                    if (overview)
+                        Main.overview.show();
+                    await settle();
+                    const dash = overview ? instance._dock.nativeDash : instance._dock.dash;
+                    const app = checkRunningIndicators(dash);
+                    const icon = bounds(app.icon);
+                    pointer.notify_absolute_motion(GLib.get_monotonic_time(),
+                        icon.x + icon.width / 2, icon.y + icon.height / 2);
+                    await settle();
+                    assert(app.hover, 'running application shows its hover highlight');
+                    if (scaleFactor === 1)
+                        await screenshot(`${overview ? 'overview' : 'dock'}-running-indicators-${size}`);
+                }
+                Main.overview.hide();
+                await settle();
+            }
+        }
+    } finally {
+        pointer.notify_absolute_motion(GLib.get_monotonic_time(), 0, 100);
+        Main.overview.hide();
+        indicatorScale.scale_factor = savedIndicatorScale;
+    }
     await Scripting.destroyTestWindows();
     await settle();
     assert(Main.panel.get_theme_node().get_background_color().to_string() === wallpaperPanelColor &&
