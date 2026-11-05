@@ -5,11 +5,6 @@
       <default>true</default>
       <summary>Show the Applications menu</summary>
     </key>
-    <key name="applications-view" type="s">
-      <choices><choice value="grid"/><choice value="list"/></choices>
-      <default>'grid'</default>
-      <summary>Last used application view</summary>
-    </key>
     <key name="dock-icon-size" type="i">
       <range min="0" max="2"/>
       <default>1</default>

@@ -58,7 +58,7 @@ export default class PantheaExtension extends Extension {
     _syncLauncher() {
         if (this._settings.get_boolean('applications-enabled')) {
             if (!this._launcher) {
-                this._launcher = new Launcher(this._settings);
+                this._launcher = new Launcher();
                 const activities = Main.panel.statusArea.activities?.container;
                 const sibling = activities?.get_parent() === Main.panel._leftBox ? activities : activities?.get_parent();
                 const position = sibling ? Main.panel._leftBox.get_children().indexOf(sibling) + 1 : 0;

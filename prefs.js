@@ -22,22 +22,6 @@ export default class PantheaPreferences extends ExtensionPreferences {
         const launcher = new Adw.PreferencesGroup({title: 'Applications Menu'});
         this._switch(launcher, settings, 'applications-enabled', 'Applications Menu',
             'Show Applications beside the Activities button.');
-        const view = new Adw.ComboRow({
-            title: 'View', subtitle: 'The menu remembers changes made with its view buttons.',
-            model: Gtk.StringList.new(['Grid', 'List']),
-        });
-        view.selected = settings.get_string('applications-view') === 'grid' ? 0 : 1;
-        const viewChanged = settings.connect('changed::applications-view', () => {
-            view.selected = settings.get_string('applications-view') === 'grid' ? 0 : 1;
-        });
-        view.connect('notify::selected', () => {
-            settings.set_string('applications-view', view.selected === 0 ? 'grid' : 'list');
-        });
-        window.connect('close-request', () => {
-            settings.disconnect(viewChanged);
-            return false;
-        });
-        launcher.add(view);
         applications.add(launcher);
         window.add(applications);
 

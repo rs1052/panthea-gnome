@@ -74,6 +74,7 @@ case "${1:-check}" in
             printf 'Install the nested-session dependency: sudo dnf install mutter-devkit\n' >&2
             exit 1
         fi
+        mkdir -p /tmp/opencode
         session=$(mktemp -d /tmp/opencode/panthea-dev.XXXXXXXX)
         runtime="$session/runtime"
         trap 'cleanup_runtime; rm -rf -- "$session"' EXIT

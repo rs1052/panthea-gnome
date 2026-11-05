@@ -1,64 +1,91 @@
 .panthea-launcher {
-    spacing: 10px;
-    padding: 6px;
+    spacing: 8px;
+    padding: 12px 6px;
 }
 
 .panthea-launcher .search-entry {
     margin: 0;
 }
 
-.panthea-header {
-    spacing: 10px;
+.panthea-app-display .icon-grid {
+    row-spacing: 12px;
+    column-spacing: 12px;
+    max-row-spacing: 12px;
+    max-column-spacing: 12px;
+    page-padding-top: 4px;
+    page-padding-bottom: 4px;
+    page-padding-left: 4px;
+    page-padding-right: 4px;
 }
 
-.panthea-toolbar {
-    spacing: 6px;
-}
-
-.panthea-app:drop {
-    background-color: -st-accent-color;
-    border-radius: 8px;
-}
-
-/* Reserve stable side margins around accessible chevron targets. */
-.panthea-page-margin {
-    width: 48px;
-}
-
-.panthea-page-arrow {
-    width: 40px;
-    height: 40px;
-    margin: 0;
-    padding: 0;
-    border: 2px solid transparent;
-    border-radius: 6px;
-    background-color: transparent;
-    box-shadow: none;
+.panthea-app-display .overview-tile {
+    color: inherit;
+    padding: 6px;
+    border-radius: 12px;
+    font-size: 0.9em;
     transition-duration: 100ms;
 }
 
-.panthea-page-arrow:hover,
-.panthea-page-arrow:focus {
-    background-color: rgba(255, 255, 255, 0.10);
+.panthea-app-display .overview-icon.overview-icon-with-label > StBoxLayout {
+    spacing: 4px;
 }
 
-.panthea-page-arrow:active {
-    background-color: rgba(255, 255, 255, 0.16);
+/* Keep the icons aligned with browsing, with native padding inside each tile. */
+.panthea-app-search {
+    padding-top: 4px;
 }
 
-.panthea-page-indicators .page-indicator {
-    min-width: 32px;
-    min-height: 32px;
-    padding: 0;
-    border: 2px solid transparent;
-    border-radius: 6px;
-    /* Focus outlines must not inherit the native 400ms dot transition. */
-    transition-duration: 0ms;
+/* Overview's opaque highlights blend into the popup surface. Use translucent
+ * feedback here so it remains visible on either Shell theme variant. */
+.panthea-app-display .overview-tile:hover,
+.panthea-app-display .overview-tile:focus,
+.panthea-app-search .overview-tile:hover,
+.panthea-app-search .overview-tile:focus,
+.panthea-app-search .overview-tile:selected,
+.panthea-launcher .page-navigation-arrow:hover,
+.panthea-launcher .page-navigation-arrow:focus {
+    background-color: rgba(128, 128, 128, 0.2);
 }
 
-.panthea-page-arrow:focus,
-.panthea-page-indicators .page-indicator:focus {
-    border-color: -st-accent-color;
+.panthea-launcher .app-folder {
+    background-color: rgba(128, 128, 128, 0.15);
+}
+
+.panthea-launcher .app-folder:hover,
+.panthea-launcher .app-folder:focus,
+.panthea-app-display .overview-tile:active,
+.panthea-app-search .overview-tile:active,
+.panthea-launcher .page-navigation-arrow:active {
+    background-color: rgba(128, 128, 128, 0.3);
+}
+
+.panthea-launcher .app-folder:active {
+    background-color: rgba(128, 128, 128, 0.4);
+}
+
+.panthea-app-display .overview-tile:drop {
+    background-color: st-transparentize(-st-accent-color, 0.8);
+}
+
+.panthea-launcher .page-navigation-arrow {
+    color: inherit;
+    background-color: transparent;
+    border-radius: 12px;
+    margin: 0;
+    padding: 8px;
+    width: 24px;
+    height: 24px;
+    transition-duration: 100ms;
+}
+
+.panthea-launcher .page-navigation-arrow StIcon {
+    color: inherit;
+}
+
+/* Only the popup's native controls gain keyboard focus, not Overview's. */
+.panthea-launcher .page-indicator:focus,
+.panthea-launcher .page-navigation-arrow:focus {
+    box-shadow: inset 0 0 0 2px -st-accent-color;
 }
 
 /* Leave :overview and transition timing to the native Shell theme. */
@@ -72,7 +99,7 @@
 #panel.panthea-panel:overview StLabel,
 #panel.panthea-panel .screen-recording-indicator StLabel,
 #panel.panthea-panel .screen-sharing-indicator StLabel {
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
 }
 
 #panel.panthea-panel StIcon,
@@ -80,21 +107,21 @@
 #panel.panthea-panel StIcon.privacy-indicator,
 #panel.panthea-panel .screen-recording-indicator StIcon,
 #panel.panthea-panel .screen-sharing-indicator StIcon {
-    icon-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+    icon-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
 }
 
-/* Keep dark controls crisp; retain black shadows on light controls. */
+/* St supports one shadow per element. Use a soft, centered white halo. */
 #panel.panthea-dark-text StLabel {
-    text-shadow: none;
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.38);
 }
 
 #panel.panthea-dark-text StIcon {
-    icon-shadow: none;
+    icon-shadow: 0 0 6px rgba(255, 255, 255, 0.38);
 }
 
 #panel.panthea-panel.panthea-surface,
 #panthea-dock .panthea-dash .dash-background.panthea-surface {
-    background-color: rgba(0, 0, 0, 0.3);
+    background-color: rgba(0, 0, 0, 0.4);
     color: #ffffff;
 }
 
@@ -180,38 +207,6 @@
 #panel.panthea-dark-text:overview .clock-display:active .clock:hover,
 #panel.panthea-dark-text:overview .clock-display:checked .clock:hover {
     box-shadow: inset 0 0 0 100px rgba(250, 250, 251, 0.32);
-}
-
-.panthea-body {
-    spacing: 12px;
-}
-
-.panthea-app {
-    padding: 8px;
-    border-radius: 12px;
-    font-weight: normal;
-}
-
-.panthea-app StBoxLayout {
-    spacing: 8px;
-}
-
-.panthea-app StLabel {
-    text-align: center;
-}
-
-.panthea-categories {
-    spacing: 2px;
-}
-
-.panthea-category {
-    padding: 8px 14px;
-    font-weight: normal;
-    text-align: left;
-}
-
-.panthea-category:checked {
-    font-weight: 500;
 }
 
 .panthea-empty {

@@ -43,18 +43,3 @@ export const DOCK_HIDE_MODES = [
     ['any-overlap', 'When any window overlaps the dock'],
     ['unused', 'When not being used'],
 ];
-
-export const CATEGORIES = [
-    ['AudioVideo', 'Sound & Video'],
-    ['Development', 'Development'],
-    ['Education', 'Education'],
-    ['Game', 'Games'],
-    ['Graphics', 'Graphics'],
-    ['Network', 'Internet'],
-    ['Office', 'Office'],
-    ['Science', 'Science'],
-    ['Settings', 'Settings'],
-    ['System', 'System'],
-    ['Utility', 'Utilities'],
-    ['Other', 'Other'],
-];

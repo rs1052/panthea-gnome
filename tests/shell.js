@@ -8,6 +8,9 @@ import Shell from 'gi://Shell';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
+import {AppSearchProvider} from 'resource:///org/gnome/shell/ui/appDisplay.js';
+import {GridSearchResults} from 'resource:///org/gnome/shell/ui/search.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 import {ExtensionState} from 'resource:///org/gnome/shell/misc/extensionUtils.js';
 
@@ -131,72 +134,16 @@ function checkLauncherAnchor(launcher) {
         'Applications popup follows the button left edge, not its center or the screen center');
 }
 
-function checkCategories(launcher) {
-    const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
-    const appFont = launcher._visibleButtons[0]._label.get_theme_node().get_font();
-    for (const button of launcher._categoryButtons.values()) {
-        if (!button.visible)
-            continue;
-        const node = button.get_theme_node();
-        const label = button.child;
-        const font = node.get_font();
-        assert(Math.abs(node.get_padding(St.Side.LEFT) - 14 * scale) < 1 &&
-            Math.abs(node.get_padding(St.Side.RIGHT) - 14 * scale) < 1 &&
-            Math.abs(bounds(label).x - bounds(button).x - node.get_padding(St.Side.LEFT)) <= 2 * scale,
-        `${button.label} is left-aligned with 14px horizontal padding`);
-        assert(font.get_size() === appFont.get_size(), `${button.label} keeps the application font size`);
-        assert(font.get_weight() === (button.checked ? 500 : 400) &&
-            label.opacity === (button.checked ? 255 : 204),
-        `${button.label} uses the selected or muted category typography`);
-        if (button.checked) {
-            assert(node.get_background_color().alpha > 0 && node.get_border_radius(0) > 0,
-                'selected category retains its native rounded background');
-        }
-    }
-}
-
 function checkPageArrows(launcher) {
-    const {x, width} = bounds(launcher._root);
-    const body = bounds(launcher._body);
-    const dots = bounds(launcher._pageIndicators);
-    assert(Math.abs(dots.x + dots.width / 2 - (x + width / 2)) < 1,
-        'page dots remain centered in the launcher');
-    const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
-    const dotAreas = launcher._pageIndicators.get_children().map(bounds);
-    assert(launcher._pageIndicators.get_children().every((indicator, index) =>
-        indicator.accessible_name === `Page ${index + 1} of ${launcher._pageIndicators.nPages}` &&
-        indicator._tooltip.label.text === indicator.accessible_name),
-    'page dots have accessible names and matching tooltips for the current page count');
-    for (const [arrow, name] of [[launcher._previousPageArrow, 'Previous page'],
-        [launcher._nextPageArrow, 'Next page']]) {
-        assert(arrow.accessible_name === name && arrow._tooltip.label.text === name,
-            `${name} has an accessible name and matching tooltip`);
-    }
-    assert(dotAreas.every(area => area.width >= 32 * scale && area.height >= 32 * scale),
-        'page dots have at least 32px targets');
-    assert(dotAreas.every((area, index) => index === 0 ||
-        area.x >= dotAreas[index - 1].x + dotAreas[index - 1].width),
-    'page dot targets do not overlap');
-    assert(launcher._pageIndicators.get_children().every(indicator =>
-        indicator.get_theme_node().get_transition_duration() === 0),
-    'page dot focus outlines update without an inherited transition delay');
-    for (const arrow of [launcher._previousPageArrow, launcher._nextPageArrow]) {
-        if (!arrow.visible)
-            continue;
-        const area = bounds(arrow);
-        assert(area.width >= 40 * scale && area.height >= 40 * scale &&
-            arrow.child.icon_size === 16,
-        'page arrows have at least 40px targets with compact 16px chevrons');
-        assert(Math.abs(area.y + area.height / 2 - (body.y + body.height / 2)) < 1,
-            `${arrow.accessible_name} is vertically centered`);
-        assert(launcher._visibleButtons.every(button => {
-            const app = bounds(button);
-            return app.x + app.width <= area.x || app.x >= area.x + area.width;
-        }), `${arrow.accessible_name} never overlaps application tiles`);
-        assert(arrow.has_style_class_name('panthea-page-arrow') &&
-            !arrow.has_style_class_name('page-navigation-arrow'),
-        'chevrons do not inherit native circular button styling');
-    }
+    const display = launcher._nativeDisplay;
+    const indicators = display._pageIndicators;
+    assert(indicators.nPages === display._grid.nPages &&
+        indicators.get_children().every((indicator, index) => indicator.can_focus &&
+            indicator.accessible_name === `Page ${index + 1} of ${indicators.nPages}`),
+    'native page dots remain keyboard-accessible and named');
+    assert([display._prevPageArrow, display._nextPageArrow].every(arrow =>
+        arrow.can_focus && arrow.has_style_class_name('page-navigation-arrow')),
+    'popup retains native page navigation controls');
 }
 
 function sampleProcess() {
@@ -229,12 +176,15 @@ function checkPanelShadows(enabled = true) {
                 return shadow === null;
             const foreground = actor.get_theme_node().get_foreground_color();
             if (foreground.red < 100)
-                return shadow === null;
+                return shadow && shadow.xoffset === 0 && shadow.yoffset === 0 &&
+                    shadow.blur === 6 * scale && shadow.spread === 0 && !shadow.inset &&
+                    shadow.color.red === 255 && shadow.color.green === 255 && shadow.color.blue === 255 &&
+                    Math.abs(shadow.color.alpha / 255 - 0.38) < 0.01;
             return shadow && shadow.xoffset === 0 && shadow.yoffset === scale &&
                 shadow.blur === 3 * scale && shadow.spread === 0 && !shadow.inset &&
                 shadow.color.red === 0 && shadow.color.green === 0 && shadow.color.blue === 0 &&
-                Math.abs(shadow.color.alpha / 255 - 0.45) < 0.01;
-        }), `${property} leaves dark controls unshadowed and keeps soft black shadows on light controls with Panel Translucency ${enabled ? 'enabled' : 'disabled'}`);
+                Math.abs(shadow.color.alpha / 255 - 0.65) < 0.01;
+        }), `${property} gives dark controls white halos and light controls black shadows with Panel Translucency ${enabled ? 'enabled' : 'disabled'}`);
     }
 }
 
@@ -397,6 +347,22 @@ async function checkWallpaperWindowOverride(instance, name) {
             (instance._appearance._wallpaper.state === 'translucent' && !instance._appearance._wallpaper.dark ? 51 : 255),
         `${name}: qualifying windows retain the correct foreground contrast`);
         await screenshot(`wallpaper-${name}-maximized`);
+        window.unmaximize();
+        await settle();
+        window.set_maximize_flags(Meta.MaximizeFlags.VERTICAL);
+        await settle();
+        assert(window.maximized_vertically && !window.maximized_horizontally &&
+            panelColor().to_string() === expected,
+        `${name}: vertical-only maximization keeps the same panel treatment`);
+        window.unmaximize();
+        await settle();
+        window.set_maximize_flags(Meta.MaximizeFlags.HORIZONTAL);
+        await settle();
+        assert(!window.maximized_vertically && window.maximized_horizontally &&
+            panelColor().to_string() === expected,
+        `${name}: horizontal-only maximization keeps the same panel treatment`);
+        assert(instance._dock.background.get_theme_node().get_background_color().to_string() === dockBackground,
+            `${name}: partial maximization leaves the dock background unchanged`);
         window.unmaximize(Meta.MaximizeFlags.BOTH);
         await settle();
         assert(panelColor().to_string() === background &&
@@ -465,190 +431,122 @@ export async function run() {
     assert(launcher.menu.isOpen, 'Applications opens');
     checkLauncherAnchor(launcher);
     assert(launcher.catalog.ready, 'application catalog is ready');
-    assert(launcher._visibleButtons.length > 0, 'first page has applications');
-    assert(launcher._visibleButtons.length <= launcher._pageSize, 'application actors are bounded by page size');
+    const display = launcher._nativeDisplay;
+    const gridItems = () => display._grid.getItemsAtPage(display._grid.currentPage);
+    assert(gridItems().length > 0, 'native first page has applications');
     assert(!launcher._count, 'Applications has no count label');
-    assert(launcher._pageIndicators.nPages === Math.ceil(launcher._matches.length / launcher._pageSize),
+    assert(display._pageIndicators.nPages === display._grid.nPages,
         'native dots show the actual page count');
     const search = bounds(launcher._search);
-    const view = bounds(launcher._viewButtons.get('grid'));
-    assert(Math.abs(search.y + search.height / 2 - (view.y + view.height / 2)) < 1 &&
-        search.x + search.width <= view.x,
-    'search and view controls share one row without overlap');
-    assert(launcher._root.get_children().length === 3, 'the old toolbar row is reclaimed');
-    assert(!launcher._previousPageArrow.visible && launcher._nextPageArrow.visible,
-        'only Next is shown on the first grid page');
-    const firstGridTile = bounds(launcher._visibleButtons[0]);
-    assert(launcher._nextPageArrow.get_theme_node().get_background_color().alpha === 0,
-        'chevrons have no background at rest');
-    await screenshot('applications-arrow-rest');
-    const nextArrow = bounds(launcher._nextPageArrow);
-    pointer.notify_absolute_motion(GLib.get_monotonic_time(),
-        nextArrow.x + nextArrow.width / 2, nextArrow.y + nextArrow.height / 2);
-    await settle();
-    await until(() => launcher._nextPageArrow._tooltip.label.visible,
-        'hovering a chevron shows its delayed tooltip');
-    assert(launcher._nextPageArrow._tooltip.label.text === 'Next page' &&
-        launcher._nextPageArrow._tooltip.label.has_style_class_name('dash-label'),
-    'chevron tooltips use the accessible name and native view-button style');
-    await screenshot('applications-arrow-hover');
-    assert(launcher._nextPageArrow.hover, 'page arrows respond to pointer hover');
-    assert(launcher._nextPageArrow.get_theme_node().get_background_color().alpha > 0,
-        'hover adds a subtle chevron background');
-    pointer.notify_absolute_motion(GLib.get_monotonic_time(),
-        search.x + search.width / 2, search.y + search.height / 2);
-    await settle();
-    assert(!launcher._nextPageArrow.hover &&
-        launcher._nextPageArrow.get_theme_node().get_background_color().alpha === 0,
-    'leaving a chevron removes its hover background');
-    assert(!launcher._nextPageArrow._tooltip.label.visible,
-        'leaving a chevron hides its tooltip');
-    launcher._nextPageArrow.grab_key_focus();
-    await settle();
-    await screenshot('applications-arrow-focus');
-    assert(launcher._nextPageArrow.get_theme_node().get_background_color().alpha > 0,
-        'keyboard focus highlights the chevron without pointer hover');
-    assert(launcher._nextPageArrow.get_theme_node().get_border_color(St.Side.TOP).alpha > 0 &&
-        launcher._nextPageArrow.get_theme_node().get_border_width(St.Side.TOP) >= 2,
-    'keyboard-focused chevrons have a distinct visible outline');
+    assert(search.y + search.height <= bounds(display).y, 'search sits above the native grid');
+    assert(!launcher._viewButtons && !launcher._categoryButtons, 'obsolete view and category controls are removed');
+    assert(!launcher._results.visible && display.visible, 'unfiltered grid uses native AppDisplay');
     checkPageArrows(launcher);
+    assert(!display._prevPageArrow.visible && display._nextPageArrow.visible,
+        'native grid initially shows only Next');
+    display._nextPageArrow.grab_key_focus();
     await press(keyboard, Clutter.KEY_space);
-    assert(launcher._page === 1, 'Next supports keyboard activation');
-    assert(launcher._previousPageArrow.visible, 'Previous appears after leaving the first page');
-    const nextGridTile = bounds(launcher._visibleButtons[0]);
-    assert(['x', 'y', 'width', 'height'].every(key =>
-        Math.abs(firstGridTile[key] - nextGridTile[key]) < 1),
-    'changing arrow visibility never displaces or resizes application tiles');
-    if (launcher._pageIndicators.nPages > 2)
-        assert(launcher._nextPageArrow.visible, 'both arrows appear on a middle page');
-    checkPageArrows(launcher);
-    launcher._previousPageArrow.grab_key_focus();
-    launcher._previousPageArrow._tooltip.show();
-    const previousArrow = bounds(launcher._previousPageArrow);
-    await click(pointer, previousArrow.x + 3,
-        previousArrow.y + previousArrow.height / 2);
-    assert(launcher._page === 0 && !launcher._previousPageArrow.visible,
-        'clicking Previous returns to the first page and hides it');
-    assert(!launcher._previousPageArrow._tooltip.label.visible,
-        'a disappearing chevron hides its tooltip');
-    assert(global.stage.key_focus === launcher._nextPageArrow,
-        'focus moves to Next when Previous disappears');
-    launcher._changePage(launcher._pageIndicators.nPages - 2 - launcher._page);
-    launcher._nextPageArrow.grab_key_focus();
-    launcher._nextPageArrow._tooltip.show();
+    assert(display._grid.currentPage === 1, 'native Next supports keyboard activation');
+    display._pageIndicators.get_children()[0].grab_key_focus();
     await press(keyboard, Clutter.KEY_space);
-    assert(launcher._page === launcher._pageIndicators.nPages - 1 && !launcher._nextPageArrow.visible,
-        'Next hides on reaching the last page');
-    assert(!launcher._nextPageArrow._tooltip.label.visible,
-        'reaching the last page hides the Next tooltip');
-    assert(global.stage.key_focus === launcher._previousPageArrow,
-        'focus moves to Previous when Next disappears');
-    checkPageArrows(launcher);
-    launcher._changePage(-launcher._page);
-    const dots = launcher._pageIndicators.get_children();
-    assert(dots[0].child.opacity > dots[1].child.opacity, 'the active dot is more prominent');
-    dots[1].emit('clicked', Clutter.BUTTON_PRIMARY);
-    await settle();
-    assert(launcher._page === 1, 'clicking a page dot changes pages');
-    launcher._pageIndicators.get_children()[0].emit('clicked', Clutter.BUTTON_PRIMARY);
-    await settle();
-    const secondDot = launcher._pageIndicators.get_children()[1];
-    const dotArea = bounds(secondDot);
-    await click(pointer, dotArea.x + 3, dotArea.y + dotArea.height / 2);
-    assert(launcher._page === 1, 'page dots activate outside the small visible glyph');
-    launcher._changePage(-launcher._page);
-    pointer.notify_absolute_motion(GLib.get_monotonic_time(),
-        dotArea.x + dotArea.width / 2, dotArea.y + dotArea.height / 2);
-    await settle();
-    assert(secondDot.hover, 'page dots respond to pointer hover');
-    await until(() => secondDot._tooltip.label.visible,
-        'hovering a page dot shows its delayed tooltip');
-    assert(secondDot._tooltip.label.text === `Page 2 of ${launcher._pageIndicators.nPages}` &&
-        secondDot._tooltip.label.has_style_class_name('dash-label'),
-    'dot tooltips use the accessible name and native view-button style');
-    await screenshot('applications-dot-tooltip');
-    const dotHoverOpacity = secondDot.child.opacity;
-    const dotHoverScale = secondDot.child.scale_x;
-    pointer.notify_absolute_motion(GLib.get_monotonic_time(), search.x, search.y);
-    secondDot.grab_key_focus();
-    await settle();
-    assert(!secondDot._tooltip.label.visible, 'leaving a page dot hides its tooltip');
-    assert(!secondDot.hover && secondDot.child.opacity === dotHoverOpacity &&
-        secondDot.child.scale_x === dotHoverScale,
-    'keyboard-focused dots match their hover appearance');
-    assert(secondDot.get_theme_node().get_border_color(St.Side.TOP).alpha > 0 &&
-        secondDot.get_theme_node().get_border_width(St.Side.TOP) >= 2,
-    'keyboard-focused page dots have a distinct visible outline');
-    await screenshot('applications-dot-focus');
-    await press(keyboard, Clutter.KEY_ISO_Left_Tab);
-    assert(global.stage.key_focus === launcher._pageIndicators.get_children()[0],
-        'keyboard navigation reaches the previous page dot');
-    await press(keyboard, Clutter.KEY_Tab);
-    assert(global.stage.key_focus === secondDot, 'Tab reaches the next page dot');
-    await press(keyboard, Clutter.KEY_space);
-    assert(launcher._page === 1 && secondDot.can_focus, 'page dots support keyboard focus and activation');
-    await press(keyboard, Clutter.KEY_Page_Up);
-    launcher._search.grab_key_focus();
-    await settle();
-    assert(secondDot.child.opacity < dotHoverOpacity,
-        'leaving an inactive page dot restores its resting appearance');
+    assert(display._grid.currentPage === 0, 'native dots support keyboard activation');
     await screenshot('applications-grid');
-    const paginationTooltips = [launcher._nextPageArrow._tooltip,
-        ...launcher._pageIndicators.get_children().map(indicator => indicator._tooltip)];
-    for (const tooltip of paginationTooltips)
-        tooltip.show();
-    assert(paginationTooltips.every(tooltip => tooltip.label.visible),
-        'pagination tooltips are visible before closing the menu');
     launcher.menu.close();
-    assert(paginationTooltips.every(tooltip => !tooltip.label.visible),
-        'closing the menu immediately hides all pagination tooltips');
     await settle();
     launcher.menu.open();
     await settle();
 
     await press(keyboard, Clutter.KEY_Down);
-    assert(global.stage.key_focus === launcher._visibleButtons[0], 'Down moves from search to applications');
+    assert(global.stage.key_focus === gridItems()[0], 'Down moves from search to native applications');
     await press(keyboard, Clutter.KEY_Right);
-    assert(global.stage.key_focus === launcher._visibleButtons[1], 'Right moves between applications');
+    assert(global.stage.key_focus === gridItems()[1], 'Right moves between native applications');
     await press(keyboard, Clutter.KEY_Page_Down);
-    assert(launcher._page === 1, 'Page Down changes application pages');
+    assert(display._grid.currentPage === 1, 'Page Down changes native application pages');
     await press(keyboard, Clutter.KEY_Page_Up);
-    assert(launcher._page === 0, 'Page Up restores the first page');
-    launcher._visibleButtons[0].popupMenu();
+    assert(display._grid.currentPage === 0, 'Page Up restores the first native page');
+    const appIcon = gridItems().find(item => item.app);
+    appIcon.popupMenu();
     await settle();
-    assert(launcher._visibleButtons[0]._menu.isOpen, 'native application context menu opens');
+    assert(appIcon._menu.isOpen, 'native application context menu opens');
     await screenshot('application-context-menu');
-    launcher._visibleButtons[0]._menu.close();
+    appIcon._menu.close();
     launcher._search.grab_key_focus();
 
-    const gridHeight = launcher._visibleButtons[0].height;
-    const gridTop = launcher._visibleButtons[0].get_transformed_position()[1];
-    const gridLeft = launcher._visibleButtons[0].get_transformed_position()[0];
+    const unfilteredHeight = launcher._root.height;
+    const unfilteredWidth = launcher._root.width;
+    const browsingIconTop = bounds(gridItems()[0].icon.icon).y;
+    const unfilteredBackground = launcher.menu.box.get_theme_node().get_background_color();
+    assert(!launcher.menu.box.get_style(), 'browsing applications uses the native popup background');
+    const searchBounds = bounds(launcher._search);
     const firstName = launcher.catalog.entries[0].info.get_name();
-    const firstDot = launcher._pageIndicators.get_children()[0];
-    firstDot._tooltip.show();
-    let removedDotTooltipDestroyed = false;
-    launcher._pageIndicators.get_children().at(-1)._tooltip.label.connect('destroy', () => {
-        removedDotTooltipDestroyed = true;
-    });
     launcher._search.set_text(firstName);
     await settle();
-    assert(launcher._visibleButtons.length > 0 && launcher._visibleButtons.length < launcher._pageSize,
-        'search can produce a sparse page');
-    assert(firstDot.accessible_name === 'Page 1 of 1' &&
-        firstDot._tooltip.label.text === 'Page 1 of 1' && !firstDot._tooltip.label.visible,
-    'page-count changes update names and tooltips and hide single-page tooltips');
-    assert(removedDotTooltipDestroyed, 'removed page dots destroy their tooltip actors');
+    assert(launcher._visibleButtons.length > 0 && !display.visible,
+        'search uses a separate native results grid');
     const sparseHeight = launcher._visibleButtons[0].height;
-    const sparseTop = launcher._visibleButtons[0].get_transformed_position()[1];
-    const sparseLeft = launcher._visibleButtons[0].get_transformed_position()[0];
-    assert(launcher._visibleButtons.every(button => Math.abs(button.height - sparseHeight) < 1) &&
-        Math.abs(sparseHeight - gridHeight) < 1,
-    'sparse grid rows keep their standard height');
-    assert(Math.abs(sparseTop - gridTop) < 1 && Math.abs(sparseLeft - gridLeft) < 1,
-        'sparse grid rows start at the top left');
-    assert(!launcher._previousPageArrow.visible && !launcher._nextPageArrow.visible,
-        'single-page search results hide both arrows');
+    assert(launcher._visibleButtons.every(button => Math.abs(button.height - sparseHeight) < 1),
+        'search tiles keep their native height');
+    const checkSearchCenter = () => {
+        const tiles = launcher._visibleButtons.map(bounds);
+        const root = bounds(launcher._root);
+        assert(Math.abs((tiles[0].x + tiles.at(-1).x + tiles.at(-1).width) / 2 -
+            root.x - root.width / 2) <= 1, 'search results are horizontally centered');
+    };
+    checkSearchCenter();
+    assert(Math.abs(launcher._root.height - unfilteredHeight) <= 1,
+        'sparse search preserves the popup height');
+    assert(['x', 'y', 'width', 'height'].every(key => Math.abs(bounds(launcher._search)[key] - searchBounds[key]) <= 1),
+        'search keeps its original size and position');
+    assert(launcher._search.get_secondary_icon()?.icon_name === 'edit-clear-symbolic',
+        'populated search has the native clear icon');
+    const tile = launcher._visibleButtons[0];
+    const extraBrowsingPadding = 2 * St.ThemeContext.get_for_stage(global.stage).scale_factor;
+    assert(Math.abs(bounds(tile.icon.icon).y + extraBrowsingPadding - browsingIconTop) <= 1,
+        'search keeps its original gap while browsing icons gain 2px of button padding');
+    assert(launcher._search.contains(global.stage.key_focus) && tile.has_style_pseudo_class('selected'),
+        'the top result is selected automatically while typing in search');
+    const selectionColor = tile.get_theme_node().get_background_color();
+    const popupColor = launcher.menu.box.get_theme_node().get_background_color();
+    assert(popupColor.equal(unfilteredBackground), 'search keeps the browsing background');
+    assert(selectionColor.alpha > 0 && selectionColor.alpha < 255 && !selectionColor.equal(popupColor),
+        'the default selection uses a translucent highlight over the popup background');
+    assert(bounds(tile.icon.icon).y + bounds(tile.icon.icon).height <= bounds(tile.icon.label).y,
+        'native application icons sit above their labels');
+
+    // Compare with an unmodified native application-search section at the same
+    // width, outside Panthea's popup and its scoped CSS.
+    const provider = new AppSearchProvider();
+    const reference = new GridSearchResults(provider, null);
+    reference.width = launcher._root.width;
+    Main.uiGroup.add_child(reference);
+    try {
+        await reference.updateSearch(launcher._matches.map(entry => entry.id), firstName.split(/\s+/));
+        await settle();
+        const nativeTile = reference.getFirstResult();
+        const tileNode = tile.get_theme_node();
+        assert([St.Side.TOP, St.Side.RIGHT, St.Side.BOTTOM, St.Side.LEFT].every(side =>
+            tileNode.get_padding(side) === nativeTile.get_theme_node().get_padding(side)),
+        'search buttons retain comfortable native padding around icons and labels');
+        assert(tile.icon.iconSize === (48 + nativeTile.icon.iconSize) / 2 &&
+            tile.width < nativeTile.width && tile.height < nativeTile.height &&
+            launcher._results._grid.layout_manager.spacing === reference._grid.layout_manager.spacing,
+        'search uses midpoint icon sizing and retains native row spacing');
+        tile.remove_style_pseudo_class('selected');
+        for (const state of ['hover', 'focus', 'selected']) {
+            tile.add_style_pseudo_class(state);
+            nativeTile.add_style_pseudo_class(state);
+            const highlight = tile.get_theme_node().get_background_color();
+            assert(highlight.equal(selectionColor) &&
+                tile.get_theme_node().get_border_radius(0) === nativeTile.get_theme_node().get_border_radius(0),
+            `search ${state} uses a popup highlight and native corners`);
+            tile.remove_style_pseudo_class(state);
+            nativeTile.remove_style_pseudo_class(state);
+        }
+    } finally {
+        reference.clear();
+        reference.destroy();
+    }
+    launcher._results.highlightDefault();
     checkLauncherAnchor(launcher);
     await screenshot('applications-grid-sparse');
 
@@ -659,144 +557,125 @@ export async function run() {
     launcher._search.set_text(term);
     await settle();
     assert(launcher._matches.some(entry => entry.id === searchEntry.id), 'rapid search uses the latest query and native application matches');
+    const prefixes = [...new Set(launcher.catalog.entries.flatMap(entry =>
+        entry.name.split(/\s+/).flatMap(word => Array.from({length: Math.min(word.length, 6)},
+            (_value, index) => word.slice(0, index + 1)))))];
+    const pairQuery = prefixes.find(query => launcher.catalog.search(query).length === 2);
+    assert(pairQuery, 'installed applications provide a two-result query');
+    launcher._search.set_text(pairQuery);
+    await settle();
+    assert(launcher._visibleButtons.length === 2, 'two-result search displays both matches');
+    assert(launcher._visibleButtons[0].has_style_pseudo_class('selected') &&
+        !launcher._visibleButtons[1].has_style_pseudo_class('selected'),
+    'only the top result has the default selection highlight');
+    checkSearchCenter();
+    await screenshot('applications-search-pair');
 
     launcher._search.set_text('panthea-impossible-search-928174');
     await settle();
     assert(launcher._matches.length === 0 && launcher._empty.visible, 'empty search state');
-    assert(!launcher._pageIndicators.visible, 'empty results hide page dots');
-    assert(!launcher._previousPageArrow.visible && !launcher._nextPageArrow.visible,
-        'empty results hide both arrows');
+    assert(!display.visible, 'empty search hides the native grid and pagination');
     await screenshot('applications-empty');
-    launcher._search.set_text('');
-    // Keep the test helper alive while the expanded launcher checks run.
-    await Scripting.waitTestWindows();
-    settings.set_string('applications-view', 'list');
+    assert(Math.abs(launcher._root.height - unfilteredHeight) <= 1 &&
+        Math.abs(launcher._root.width - unfilteredWidth) <= 1,
+    'no-results state preserves the popup size');
+    // Broad queries keep only the highest-ranked applications that fit one row.
+    launcher._search.set_text('a');
     await settle();
-    assert(launcher._sidebarScroll.visible, 'list view has categories');
-    checkLauncherAnchor(launcher);
-    checkCategories(launcher);
-    assert(!launcher._previousPageGutter.visible && !launcher._nextPageGutter.visible,
-        'list view has no arrow gutters');
-    assert(!launcher._pageIndicators.visible && launcher._page === 0 &&
-        launcher._visibleButtons.length === launcher._matches.length &&
-        launcher._matches.length > launcher._pageSize,
-    'list view exposes every result without pagination');
-    const listAdjustment = launcher._resultsScroll.vadjustment;
-    assert(listAdjustment.upper > listAdjustment.page_size,
-        'long lists have a bounded scrollable viewport');
-    const scrollArea = bounds(launcher._resultsScroll);
-    pointer.notify_absolute_motion(GLib.get_monotonic_time(),
-        scrollArea.x + scrollArea.width / 2, scrollArea.y + scrollArea.height / 2);
+    const ranked = (await provider.getInitialResultSet(['a'], null)).filter(id => id.endsWith('.desktop'));
+    assert(launcher._visibleButtons.length > 1 && launcher._visibleButtons.length <= 6 &&
+        launcher._visibleButtons.map(icon => icon.id).join(',') === ranked.slice(0, launcher._visibleButtons.length).join(','),
+    'search shows the highest-ranked native application matches, up to six');
+    checkSearchCenter();
+    assert(launcher._visibleButtons.every(icon => icon.y === launcher._visibleButtons[0].y),
+        'broad search stays in a single row');
+    assert(Math.abs(launcher._root.height - unfilteredHeight) <= 1 &&
+        Math.abs(launcher._root.width - unfilteredWidth) <= 1,
+    'broad search preserves the popup size');
+    const cachedFirst = launcher._visibleButtons[0];
+    launcher._queueRender();
     await settle();
-    const sidebarValue = launcher._sidebarScroll.vadjustment.value;
-    pointer.notify_discrete_scroll(GLib.get_monotonic_time(),
-        Clutter.ScrollDirection.DOWN, Clutter.ScrollSource.WHEEL);
-    await settle();
-    assert(listAdjustment.value > 0 && launcher._sidebarScroll.vadjustment.value === sidebarValue,
-        'mouse wheel scrolls results independently of the category sidebar');
-    const wheelValue = listAdjustment.value;
-    pointer.notify_scroll_continuous(GLib.get_monotonic_time(), 0, 40,
-        Clutter.ScrollSource.FINGER, Clutter.ScrollFinishFlags.NONE);
-    pointer.notify_scroll_continuous(GLib.get_monotonic_time(), 0, 0,
-        Clutter.ScrollSource.FINGER, Clutter.ScrollFinishFlags.VERTICAL);
-    await settle();
-    assert(listAdjustment.value > wheelValue,
-        'continuous touchpad-style scrolling moves list results');
-    const scrollbar = launcher._resultsScroll.get_children().find(actor =>
-        actor instanceof St.ScrollBar && actor.orientation === Clutter.Orientation.VERTICAL);
-    const scrollBounds = bounds(scrollbar);
-    const beforeScrollbarClick = listAdjustment.value;
-    await click(pointer, scrollBounds.x + scrollBounds.width / 2,
-        scrollBounds.y + scrollBounds.height - 8);
-    assert(listAdjustment.value > beforeScrollbarClick, 'native scrollbar supports pointer scrolling');
-    launcher._categoryButtons.get('all').emit('clicked', Clutter.BUTTON_PRIMARY);
-    await settle();
+    assert(launcher._visibleButtons[0] === cachedFirst, 'unchanged search reuses its result actors');
     launcher._search.grab_key_focus();
     await press(keyboard, Clutter.KEY_Down);
+    assert(global.stage.key_focus === launcher._visibleButtons[0], 'Down enters the search row');
+    await press(keyboard, Clutter.KEY_Right);
+    assert(global.stage.key_focus === launcher._visibleButtons[1], 'Right moves across the search row');
+    await press(keyboard, Clutter.KEY_Left);
+    assert(global.stage.key_focus === launcher._visibleButtons[0], 'Left moves back across the search row');
     await press(keyboard, Clutter.KEY_End);
-    assert(global.stage.key_focus === launcher._visibleButtons.at(-1) && listAdjustment.value > 0,
-        'End focuses and scrolls to the last list result');
-    const lastResult = bounds(launcher._visibleButtons.at(-1));
-    const viewport = bounds(launcher._resultsScroll);
-    assert(lastResult.y >= viewport.y - 1 &&
-        lastResult.y + lastResult.height <= viewport.y + viewport.height + 1,
-    'keyboard-focused list results remain visible');
-    await press(keyboard, Clutter.KEY_Page_Up);
-    assert(launcher._page === 0 && global.stage.key_focus !== launcher._visibleButtons.at(-1),
-        'Page Up navigates the continuous list without changing pages');
+    assert(global.stage.key_focus === launcher._visibleButtons.at(-1), 'End focuses the last search result');
     await press(keyboard, Clutter.KEY_Home);
-    assert(listAdjustment.value === 0, 'Home scrolls back to the first list result');
-    launcher._search.grab_key_focus();
-    await press(keyboard, Clutter.KEY_Page_Down);
-    assert(listAdjustment.value > 0 && launcher._page === 0,
-        'Page Down scrolls the list from search without pagination');
-    launcher._categoryButtons.get('all').emit('clicked', Clutter.BUTTON_PRIMARY);
+    assert(global.stage.key_focus === launcher._visibleButtons[0], 'Home focuses the first search result');
+    await press(keyboard, Clutter.KEY_Up);
+    assert(launcher._search.contains(global.stage.key_focus), 'Up returns to the search field');
+    launcher._search.emit('secondary-icon-clicked');
     await settle();
-    assert(listAdjustment.value === 0, 'category selection resets list scrolling');
-    launcher._categoryButtons.get('favorites').emit('clicked', Clutter.BUTTON_PRIMARY);
-    const savedFavorites = global.settings.get_strv('favorite-apps');
-    try {
-        global.settings.set_strv('favorite-apps', []);
-        await settle();
-        assert(launcher._visibleButtons.length === 0 && launcher._empty.visible &&
-            launcher._empty.text === 'No favorite applications' && !launcher._pageIndicators.visible,
-        'empty Favorites retains its message without pagination');
-    } finally {
-        global.settings.set_strv('favorite-apps', savedFavorites);
-    }
+    assert(display.visible && !launcher._search.get_text() && !launcher._search.get_secondary_icon(),
+        'clear button restores the normal grid and removes itself');
+    assert(launcher.menu.box.get_theme_node().get_background_color().equal(unfilteredBackground),
+        'clearing search keeps the same popup background');
     launcher._search.set_text(term);
     await settle();
-    assert(!launcher._sidebarScroll.visible && !launcher._pageIndicators.visible &&
-        launcher._matches.some(entry => entry.id === searchEntry.id) &&
-        launcher._visibleButtons.length === launcher._matches.length,
-    'list search spans all categories and remains unpaginated');
-    launcher._search.set_text('panthea-impossible-search-928174');
+    assert(launcher._matches.some(entry => entry.id === searchEntry.id) &&
+        launcher._visibleButtons.length <= 6,
+    'search uses native matches and the Overview result limit');
+    assert(Math.abs(launcher._visibleButtons[0].height - sparseHeight) < 1,
+        'search tiles keep the same height for broad and sparse queries');
+    launcher._visibleButtons[0].popupMenu();
     await settle();
-    assert(launcher._empty.visible && launcher._visibleButtons.length === 0 &&
-        !launcher._pageIndicators.visible,
-    'empty list search retains its message without pagination');
-    launcher._search.set_text('');
-    launcher._categoryButtons.get('all').emit('clicked', Clutter.BUTTON_PRIMARY);
+    assert(launcher._visibleButtons[0]._menu.isOpen, 'search results use native application menus');
+    launcher._visibleButtons[0]._menu.close();
+    launcher._visibleButtons[0].grab_key_focus();
+    await press(keyboard, Clutter.KEY_Menu);
+    assert(launcher._visibleButtons[0]._menu.isOpen, 'Menu key opens the native search context menu');
+    await press(keyboard, Clutter.KEY_Escape);
+    const resultBounds = bounds(launcher._visibleButtons[0]);
+    pointer.notify_absolute_motion(GLib.get_monotonic_time(),
+        resultBounds.x + resultBounds.width / 2, resultBounds.y + resultBounds.height / 2);
     await settle();
-    const fullListHeight = launcher._visibleButtons[0].height;
-    const fullListTop = launcher._visibleButtons[0].get_transformed_position()[1];
-    const sparseCategory = [...launcher._categoryButtons.keys()].find(id => {
-        if (id === 'all' || id === 'favorites')
-            return false;
-        const count = launcher.catalog.entries.filter(entry => entry.category === id).length;
-        return count > 0 && count < launcher._pageSize;
-    });
-    assert(sparseCategory, 'a partly filled category exists');
-    launcher._categoryButtons.get(sparseCategory).emit('clicked', Clutter.BUTTON_PRIMARY);
+    pointer.notify_button(GLib.get_monotonic_time(), Clutter.BUTTON_SECONDARY, Clutter.ButtonState.PRESSED);
+    pointer.notify_button(GLib.get_monotonic_time(), Clutter.BUTTON_SECONDARY, Clutter.ButtonState.RELEASED);
     await settle();
-    const listHeight = launcher._visibleButtons[0].height;
-    const listTop = launcher._visibleButtons[0].get_transformed_position()[1];
-    const listBottom = launcher._visibleButtons.at(-1).y + listHeight;
-    assert(launcher._visibleButtons.every(button => Math.abs(button.height - listHeight) < 1) &&
-        Math.abs(listHeight - fullListHeight) < 1 && listBottom <= launcher._body.height,
-    'sparse list rows keep their standard height');
-    assert(Math.abs(listTop - fullListTop) < 1, 'sparse list rows start at the top');
-    checkCategories(launcher);
-    for (const [view, text] of [['grid', 'Grid View'], ['list', 'Category View']]) {
-        const button = launcher._viewButtons.get(view);
-        assert(button.accessible_name === text, `${text} is the tooltip label`);
-        button._tooltip.show();
+    assert(launcher._visibleButtons[0]._menu.isOpen, 'right-click opens the native search context menu');
+    launcher._visibleButtons[0]._menu.close();
+    launcher._search.grab_key_focus();
+    await press(keyboard, Clutter.KEY_Escape);
+    assert(launcher.menu.isOpen && display.visible && !launcher._search.get_text(),
+        'Escape clears search and restores the native grid');
+    launcher._search.set_text(term);
+    await settle();
+    await press(keyboard, Clutter.KEY_Down);
+    await press(keyboard, Clutter.KEY_Escape);
+    assert(launcher.menu.isOpen && !launcher._search.get_text() &&
+        launcher._search.contains(global.stage.key_focus),
+    'Escape from a search result clears search and returns focus to the entry');
+    for (const query of ['panthea-impossible-search-928174', '   ']) {
+        launcher._search.set_text(query);
         await settle();
-        assert(button._tooltip.label.visible && button._tooltip.label.text === text,
-            `${text} tooltip appears`);
-        assert(button._tooltip.label.has_style_class_name('dash-label'), 'tooltips use the native Shell style');
-        if (view === 'grid')
-            await screenshot('view-tooltip');
-        button._tooltip.hide();
+        await press(keyboard, Clutter.KEY_Escape);
+        assert(launcher.menu.isOpen && display.visible && !launcher._search.get_text(),
+            `Escape clears ${query.trim() ? 'an unmatched' : 'a whitespace-only'} search without closing`);
     }
-    await screenshot('applications-list');
-    launcher._viewButtons.get('grid')._tooltip.show();
+    await press(keyboard, Clutter.KEY_Escape);
+    assert(!launcher.menu.isOpen, 'Escape closes the unfiltered menu');
+    // Intercept only the test application's launch to exercise Enter without
+    // starting an installed application or contacting the user's desktop apps.
+    launcher.menu.open();
     await settle();
-    assert(launcher._viewButtons.get('grid')._tooltip.label.visible, 'view tooltip is visible before closing');
-    launcher.menu.close();
+    launcher._search.set_text(term);
     await settle();
-    assert([...launcher._viewButtons.values()].every(button => !button._tooltip.label.visible),
-        'closing the menu hides view tooltips');
+    const resultApp = launcher._visibleButtons[0].app;
+    const activate = resultApp.activate;
+    let activated = false;
+    resultApp.activate = () => { activated = true; };
+    try {
+        await press(keyboard, Clutter.KEY_Return);
+        assert(activated && !launcher.menu.isOpen, 'Enter launches the first search result and closes the popup');
+    } finally {
+        resultApp.activate = activate;
+    }
+    await settle();
 
     for (let repeat = 0; repeat < 3; repeat++) {
         const before = GLib.get_monotonic_time();
@@ -914,7 +793,7 @@ export async function run() {
     const normalDockAlpha = instance._dock.background.get_theme_node().get_background_color().alpha;
     const lightDock = instance._appearance._wallpaper.state === 'translucent' &&
         !instance._appearance._wallpaper.dark;
-    assert(Math.abs(normalDockAlpha / 255 - (lightDock ? 0.5 : 0.3)) < 0.01,
+    assert(Math.abs(normalDockAlpha / 255 - (lightDock ? 0.5 : 0.4)) < 0.01,
         'dock uses wallpaper-selected translucency or the dark fallback');
 
     // Reset the native window helper's idle timeout before the wallpaper checks.
@@ -946,12 +825,12 @@ export async function run() {
                 `${name} wallpaper selects ${expected}`);
             await settle();
             const alpha = Main.panel.get_theme_node().get_background_color().alpha;
-            assert(expected === 'translucent' ? Math.abs(alpha / 255 - 0.3) < 0.01 : alpha === 0,
+            assert(expected === 'translucent' ? Math.abs(alpha / 255 - 0.4) < 0.01 : alpha === 0,
                 `${name} wallpaper selects the default panel background`);
             const foreground = launcher.get_theme_node().get_foreground_color();
             assert(name !== 'light' || foreground.red < 100, 'light wallpaper gives panel controls dark text');
             assert(!Main.layoutManager.panelBox.get_effect('panthea-panel-blur') &&
-                Math.abs(instance._dock.background.get_theme_node().get_background_color().alpha / 255 - 0.3) < 0.01,
+                Math.abs(instance._dock.background.get_theme_node().get_background_color().alpha / 255 - 0.4) < 0.01,
             `${name} wallpaper keeps blur disabled and selects the dark dock background`);
             await screenshot(`wallpaper-${name}`);
             checkPanelShadows();
@@ -977,6 +856,12 @@ export async function run() {
         await settle();
         await until(() => instance._appearance._wallpaper.ready && instance._appearance._wallpaper.state === 'translucent',
             'unreadable wallpaper uses the foreground contrast fallback');
+        await settle();
+        const fallback = Main.panel.get_theme_node().get_background_color();
+        assert(fallback.red === 0 && fallback.green === 0 && fallback.blue === 0 &&
+            Math.abs(fallback.alpha / 255 - 0.4) < 0.01 &&
+            fallback.equal(instance._dock.background.get_theme_node().get_background_color()),
+        'unreadable wallpaper gives panel and dock the same black background at 40% opacity');
     } finally {
         for (const [key, value] of savedBackground)
             backgroundSettings.set_value(key, value);
@@ -991,16 +876,18 @@ export async function run() {
         await settle();
         launcher.menu.open();
         await settle();
-        assert(launcher.menu.isOpen && launcher._visibleButtons.length > 0, `launcher survives ${scheme}`);
+        assert(launcher.menu.isOpen && display.visible && gridItems().length > 0, `launcher survives ${scheme}`);
         checkLauncherAnchor(launcher);
-        checkCategories(launcher);
-        settings.set_string('applications-view', 'grid');
-        await settle();
         checkPageArrows(launcher);
-        settings.set_string('applications-view', 'list');
-        await settle();
         assert(Main.panel.get_theme_node().get_background_color().alpha < 255, `${scheme} retains translucency`);
         await screenshot(`applications-${scheme}`);
+        const browsingBackground = launcher.menu.box.get_theme_node().get_background_color();
+        launcher._search.set_text(term);
+        await settle();
+        assert(launcher._visibleButtons[0].has_style_pseudo_class('selected') &&
+            launcher.menu.box.get_theme_node().get_background_color().equal(
+                browsingBackground) && !launcher.menu.box.get_style(),
+        `${scheme} keeps the native popup background and default result highlight`);
         launcher.menu.close();
         await settle();
         await checkPanelFeedback(instance, pointer, scheme);
@@ -1009,12 +896,9 @@ export async function run() {
     await settle();
     launcher.menu.open();
     await settle();
-    assert(launcher._body.height < monitor.height, 'larger text keeps results within the display');
+    assert(display.height < monitor.height, 'larger text keeps the native grid within the display');
     checkLauncherAnchor(launcher);
-    checkCategories(launcher);
     await screenshot('applications-large-text');
-    settings.set_string('applications-view', 'grid');
-    await settle();
     checkPageArrows(launcher);
     checkLauncherAnchor(launcher);
     launcher.menu.close();
@@ -1029,19 +913,19 @@ export async function run() {
     checkDockPadding(instance._dock);
     checkPageArrows(launcher);
     checkLauncherAnchor(launcher);
-    settings.set_string('applications-view', 'list');
+    launcher._search.set_text('terminal');
     await settle();
     checkLauncherAnchor(launcher);
-    assert(!launcher._pageIndicators.visible &&
-        launcher._visibleButtons.length === launcher._matches.length,
-    'scaled list view remains continuous without pagination');
+    assert(!display.visible && launcher._visibleButtons.length > 0 && launcher._visibleButtons.length <= 6,
+        'scaled search retains the native row limit');
+    checkSearchCenter();
     launcher.menu.close();
     themeContext.scale_factor = originalScale;
     await settle();
 
     const originalFavorites = global.settings.get_strv('favorite-apps');
     const candidate = launcher.catalog.entries.find(entry => !originalFavorites.includes(entry.id));
-    launcher.catalog.favorites.addFavorite(candidate.id);
+    AppFavorites.getAppFavorites().addFavorite(candidate.id);
     await settle();
     assert(instance._dock.dash._box.get_children().some(item => item.child?.app?.get_id() === candidate.id),
         'GNOME favorite changes update the dock');
@@ -1332,17 +1216,16 @@ export async function run() {
         instance._launcher._focusId === 0 && instance._appearance._sourceId === 0,
     'interaction leaves no pending Panthea idle sources');
 
-    const launcherTooltipLabels = [launcher._previousPageArrow, launcher._nextPageArrow,
-        ...launcher._pageIndicators.get_children(), ...launcher._viewButtons.values()]
-        .map(button => button._tooltip.label);
-    let destroyedLauncherTooltips = 0;
-    for (const label of launcherTooltipLabels)
-        label.connect('destroy', () => destroyedLauncherTooltips++);
+    let displayDestroyed = false;
+    display.connect('destroy', () => { displayDestroyed = true; });
+    launcher.menu.open();
+    await settle();
+    launcher._search.set_text('settings');
+    launcher._flushRender();
     settings.set_boolean('applications-enabled', false);
     await settle();
     assert(!instance._launcher && !Main.panel.statusArea['panthea@local'], 'Applications can be disabled live');
-    assert(destroyedLauncherTooltips === launcherTooltipLabels.length,
-        'disabling Applications destroys all tooltip actors');
+    assert(displayDestroyed, 'disabling Applications destroys its native display');
     settings.set_boolean('applications-enabled', true);
     await settle();
     assert(instance._launcher, 'Applications can be enabled live');
@@ -1394,6 +1277,8 @@ export async function run() {
         oldHiding._edge.connect('destroy', () => { edgeDestroyed = true; });
         if (cycle === 0) {
             instance._launcher.menu.open();
+            await settle();
+            instance._launcher._search.set_text('terminal');
             await settle();
             instance._launcher._visibleButtons[0].popupMenu();
             await settle();
