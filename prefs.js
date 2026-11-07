@@ -32,6 +32,8 @@ export default class PantheaPreferences extends ExtensionPreferences {
         behavior.add(size);
         this._switch(behavior, settings, 'show-apps-button', 'Show Apps Button',
             "Show the button that opens GNOME's application grid.");
+        this._switch(behavior, settings, 'window-count-indicators', 'Window Count Indicators',
+            'Show up to four dots per application, colored from its icon.');
         dock.add(behavior);
         const hiding = new Adw.PreferencesGroup({title: 'Hide Dock'});
         const buttons = new Map();

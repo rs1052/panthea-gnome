@@ -105,11 +105,22 @@ function checkRunningIndicators(dash) {
         .filter(app => app?._dot?.visible);
     assert(apps.length > 0, 'running applications have native indicators');
     for (const app of apps) {
-        const dot = bounds(app._dot);
+        const indicators = app._pantheaIndicators;
+        const custom = indicators?.actor.visible;
+        const dotActor = custom ? indicators.actor : app._dot;
+        const dot = bounds(dotActor);
         const icon = bounds(app.icon.icon);
         const highlight = bounds(app.icon);
-        assert(Math.abs(dot.width - 4 * scale) < 1 && Math.abs(dot.height - 4 * scale) < 1,
+        const count = custom ? indicators.count : 1;
+        assert(Math.abs(dot.width - (4 * count + 2 * (count - 1)) * scale) < 1 &&
+            Math.abs(dot.height - 4 * scale) < 1,
             'running indicators are subtle 4px dots');
+        if (custom) {
+            assert(app._dot.opacity === 0 &&
+                indicators.actor.get_children().filter(child => child.visible).length === count &&
+                count === Math.min(4, app.app.get_windows().filter(window => !window.skip_taskbar).length),
+            'desktop indicators replace the native dot with the capped window count');
+        }
         assert(Math.abs(dot.x + dot.width / 2 - icon.x - icon.width / 2) <= 0.5 * scale,
             'running indicators are centered beneath their icons');
         assert(dot.y >= icon.y + icon.height &&
@@ -397,6 +408,7 @@ async function checkWallpaperWindowOverride(instance, name) {
 }
 
 export async function run() {
+    await Scripting.disableHelperAutoExit();
     await settle();
     const extension = Main.extensionManager.lookup('panthea@local');
     assert(extension?.state === ExtensionState.ACTIVE,
@@ -1319,7 +1331,15 @@ export async function run() {
     await click(pointer, prefsFrame.x + prefsFrame.width * 0.50, prefsFrame.y + 24);
     assert(!Main.overview.visible, 'preferences tab clicks do not trigger Overview');
     await screenshot('preferences-dock-panel');
-    await click(pointer, prefsFrame.x + 220, prefsFrame.y + 364);
+    await click(pointer, prefsFrame.x + prefsFrame.width - 92, prefsFrame.y + 247);
+    assert(!settings.get_boolean('window-count-indicators'),
+        'Window Count Indicators preference toggles off persistently');
+    // Keep the second activation outside GTK's double-click interval.
+    await Scripting.sleep(300);
+    await click(pointer, prefsFrame.x + prefsFrame.width - 92, prefsFrame.y + 247);
+    assert(settings.get_boolean('window-count-indicators'),
+        'Window Count Indicators preference toggles on persistently');
+    await click(pointer, prefsFrame.x + 220, prefsFrame.y + 420);
     assert(settings.get_string('dock-hide-mode') === 'focused-maximized',
         'Hide Dock radio row changes the persistent setting');
     settings.set_string('dock-hide-mode', 'never');

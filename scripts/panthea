@@ -51,6 +51,7 @@ case "${1:-check}" in
             case "$argument" in
                 --no-animations) extra+=(--disable-animations) ;;
                 --layout) test_script="$root/tests/layoutShell.js" ;;
+                --indicators) test_script="$root/tests/indicatorsShell.js" ;;
                 *) printf 'Unknown test option: %s\n' "$argument" >&2; exit 2 ;;
             esac
         done
@@ -104,7 +105,7 @@ case "${1:-check}" in
         gnome-extensions uninstall "$uuid"
         ;;
     *)
-        printf 'Usage: bash scripts/panthea {check|build|test [--headless|--devkit] [--layout] [--no-animations]|dev|install|remove}\n' >&2
+        printf 'Usage: bash scripts/panthea {check|build|test [--headless|--devkit] [--layout|--indicators] [--no-animations]|dev|install|remove}\n' >&2
         exit 2
         ;;
 esac
