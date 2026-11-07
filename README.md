@@ -55,6 +55,8 @@ bash scripts/panthea test --headless --layout
 bash scripts/panthea test --headless --layout --no-animations
 bash scripts/panthea test --headless --indicators
 bash scripts/panthea test --headless --indicators --no-animations
+bash scripts/panthea test --headless --dock
+bash scripts/panthea test --headless --dock --no-animations
 ```
 
 The tests use Fedora's `gnome-shell-test-tool`, an isolated settings backend, and the built extension bundle. The `--no-animations` run repeats the checks with GNOME animations disabled. Tests stop after two minutes if Shell does not finish. Screenshots are written to `/tmp/opencode/panthea-tests/`. The environment may log unavailable session services or input-method warnings that require comparison with an unmodified nested Shell before attribution.
@@ -62,6 +64,8 @@ The tests use Fedora's `gnome-shell-test-tool`, an isolated settings backend, an
 The focused `--layout` suite checks native page layout and folder synchronization, pointer dragging, cross-page moves, native folder editing, search, and drag cleanup. It uses the same isolated settings backend and does not change your normal GNOME layout.
 
 The focused `--indicators` suite checks window counts, icon colors, fallback colors, live toggling, icon sizing, matching dock indicators, unchanged application-grid dots, and cleanup.
+
+The focused `--dock` suite compares desktop and Overview background and icon bounds at 1× and 2× scaling, with all icon-size settings and Show Apps states. Deliberately different dock geometry tests the opacity handoff, unchanged bounds, natural icon sizes, and aspect ratios frame by frame for keyboard entry, Show Apps, and native gesture handlers, including reversal and cancellation. It also checks fading-dock input blocking, native Show Apps interaction, crowded docks, live sizing, hiding modes, and disable/re-enable cleanup during a gesture.
 
 ## Install in your normal session
 
@@ -109,7 +113,7 @@ Search does not run commands, query files, calculate expressions, or load Panthe
 ### Dock and panel
 
 - The dock is centered at the bottom of the primary monitor. Changes to the primary monitor reposition it.
-- Small, Medium, and Large select maximum icon sizes of 32, 48, and 64 logical pixels. The native Dash shrinks icons when space is limited.
+- Small, Medium, and Large select maximum icon sizes of 32, 48, and 64 logical pixels. Icons shrink together when width or Overview's available dock height is limited. A brief fade switches between the desktop and Overview docks at their natural sizes and positions, without zooming or moving them. The outgoing dock fades out before the incoming dock fades in, avoiding doubled icons. The handoff follows GNOME's Overview progress, including reversed and cancelled gestures. Disabled animations switch immediately.
 - In Never mode, maximized windows stop 1-2 logical pixels above the visible dock. The reserved area follows its height when additional applications make the icons smaller.
 - Hide Dock offers five radio choices: Never (default), When the focused window is maximized, When the focused window overlaps the dock, When any window overlaps the dock, and When not being used. Overlap uses window frames on the active workspace, excluding minimized windows. Maximized means maximized in both directions on the dock's monitor.
 - Never reserves space above the dock. Automatic modes release that reservation; revealed docks overlay windows rather than resizing them back and forth. Move the pointer to the bottom edge beneath the dock to reveal it. Hover, keyboard focus, application menus, and dragging keep it open. Overview uses GNOME's native dash with matching styling and icon-size settings, regardless of the desktop hiding mode. Slides use native GNOME animations and respect disabled animations. Window and pointer events drive updates without periodic polling.
@@ -160,6 +164,7 @@ The power-icon setting hides the icon only. Battery percentage continues to foll
 | --- | --- |
 | `extension.js` | Lifecycle, live feature switches, panel registration, overlap checks |
 | `lib/dock.js` | Extension-owned native Dash, bounded icon sizing, bottom geometry, struts |
+| `lib/dockTransition.js` | Progress-driven opacity handoff to the native Overview Dash |
 | `lib/dockHiding.js` | Event-driven hiding, edge reveal, native slide transitions, stationary work-area reservation |
 | `lib/windowIndicators.js`, `shared/indicators.js` | Window-count dots in both docks and cached, asynchronous icon-color analysis |
 | `lib/launcher.js` | Applications popup, search results, popup sizing and keyboard integration |
@@ -171,7 +176,7 @@ The power-icon setting hides the icon only. Battery percentage continues to foll
 | `lib/visibility.js` | Reversible hidden parents that preserve native actor visibility bindings |
 | `prefs.js`, `shared/`, `schemas/` | Separate preferences UI, common labels/model logic, GSettings contract |
 
-The desktop dock uses a new instance of GNOME's Dash. Moving the existing Overview Dash would couple desktop placement to Overview allocation and startup animations. A fully independent dock would duplicate favorites, drag-and-drop, application menus, and window behavior. The small native subclass bounds icon size and clears completed drag-monitor references. Overview retains its original Dash and native allocation and stacking, so window captions remain above it. The desktop dock is hidden throughout Overview; both dashes share styling, the icon-size limit, and Show Apps visibility. Panthea does not replace existing Shell methods or prototypes.
+The desktop dock uses a new instance of GNOME's Dash. Moving the existing Overview Dash would couple desktop placement to Overview allocation and startup animations. A fully independent dock would duplicate favorites, drag-and-drop, application menus, and window behavior. The small native subclass bounds icon size and clears completed drag-monitor references. Overview retains its original Dash and native allocation and stacking, so window captions remain above it. Both dashes share styling, the actual icon size, and Show Apps visibility. Desktop sizing respects Overview's height limit as well as the available width. Entry and exit use a short opacity handoff through the middle of Overview's state adjustment, without extra animation timers or geometry transforms. The desktop dock is hidden when faded out and blocks its children's input while Overview is visible. The two rows never fade over each other. Native child opacities are restored on disable, while Shell's login animation and window-drag opacity remain untouched. Panthea does not replace existing Shell methods or prototypes.
 
 The launcher uses an extension-owned GNOME `AppDisplay` for the unfiltered grid and `GridSearchResults` for application search. It reuses native `AppGrid`, `AppIcon`, folder views, dialogs, pagination, and drag-and-drop behavior. Search inherits Overview's tile styling and row layout, separate from the normal grid's compact styling. Overview's existing display is not moved or replaced. Opening the menu does not save or reset the layout. A popup-only position map splits native pages to fit its 15-item capacity. Intentional layout edits save the flattened order through GNOME's shared page manager, packed to Overview's capacity rather than the popup's. Popup-only gutters reserve the arrow targets rather than Overview's percentage-based page previews, leaving more space between tiles.
 
