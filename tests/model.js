@@ -3,6 +3,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 import {panelState, wallpaperPoint} from '../shared/appearance.js';
+import {dominantColor} from '../shared/indicators.js';
 import {DOCK_HIDE_MODES, DOCK_SIZES, QUICK_SETTINGS, QUICK_SETTINGS_INDICATORS, TOP_PANEL} from '../shared/options.js';
 
 function assert(condition, message) {
@@ -23,6 +24,18 @@ assert(wallpaperPoint(100, 200, 100, 100, area, 'scaled') === null,
 assert(wallpaperPoint(200, 250, 100, 100, area, 'stretched').join(',') === '50,50',
     'Stretched images map monitor-relative coordinates');
 assert(DOCK_SIZES.join(',') === '32,48,64', 'Dock size choices');
+const image = (pixels, n_channels = 4, rowstride = n_channels) => ({
+    width: 1, height: pixels.length / rowstride, rowstride, n_channels,
+    has_alpha: n_channels === 4, get_pixels: () => pixels,
+});
+assert(dominantColor(image([255, 0, 0, 255])) === 'rgb(230,80,80)', 'Red icon keeps its hue');
+assert(dominantColor(image([0, 255, 0], 3)) === 'rgb(80,230,80)', 'RGB icons need no alpha channel');
+assert(dominantColor(image([0, 0, 255, 255, 255, 0, 0, 0])) === 'rgb(80,80,230)',
+    'Transparent pixels do not tint indicators');
+assert(dominantColor(image([255, 0, 0, 255, 12, 34, 56, 78], 4, 8)) === 'rgb(230,80,80)',
+    'Row padding is not sampled');
+assert(dominantColor(image([255, 0, 0, 0])) === null, 'Transparent icons use theme fallback');
+assert(dominantColor(image([0, 0, 0, 255])) === 'rgb(230,230,230)', 'Monochrome icons get neutral dots');
 assert(DOCK_HIDE_MODES.length === 5, 'Five Hide Dock radio choices');
 assert(QUICK_SETTINGS.length === 6, 'All five JP tile controls plus Power Mode');
 assert(QUICK_SETTINGS.every(([key]) => key.startsWith('show-qs-')),
@@ -47,6 +60,8 @@ assert(/<key name="dock-hide-mode" type="s">[\s\S]*?<default>'never'<\/default>/
     'Hide Dock defaults to Never');
 assert(/<key name="show-apps-button" type="b">\s*<default>true<\/default>/.test(schema),
     'Show Apps Button defaults to shown');
+assert(/<key name="window-count-indicators" type="b">\s*<default>true<\/default>/.test(schema),
+    'Window Count Indicators default to enabled');
 const visibility = [...QUICK_SETTINGS, ...QUICK_SETTINGS_INDICATORS, ...TOP_PANEL];
 assert(visibility.length === 20, 'All 20 existing visibility settings are retained');
 for (const [key] of visibility)

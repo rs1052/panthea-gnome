@@ -107,8 +107,9 @@ export async function run() {
         const dragActor = source._draggable._dragActor;
         const [dragWidth, dragHeight] = dragActor.get_transformed_size();
         const dragScale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
-        assert(Math.abs(Math.max(dragWidth, dragHeight) - 32 * dragScale) <= 1,
-        `apps and folders use compact 32px drag icons (${dragWidth}×${dragHeight}, scale ${dragScale})`);
+        assert(Math.max(dragWidth, dragHeight) > 0 &&
+            Math.max(dragWidth, dragHeight) <= 32 * dragScale + 1,
+        `apps and folders use drag icons no larger than 32px (${dragWidth}×${dragHeight}, scale ${dragScale})`);
         if (!source.app)
             assert(dragActor.style_class === source.style_class && !dragActor.label.visible &&
                 source.icon.label.visible,
@@ -227,6 +228,42 @@ export async function run() {
     'native 24 + 12 pages become 15 + 15 + 6 popup pages without losing order');
     assert(global.settings.get_value('app-picker-layout').equal(overflowLayout),
         'packing native overflow does not rewrite saved page boundaries');
+
+    // Fifteen top-level items fit on one Overview page. Extracting a folder
+    // member needs a second popup page, but must not create an Overview page.
+    global.settings.set_strv('favorite-apps', ids.slice(16));
+    global.settings.set_value('app-picker-layout', packPages([ids.slice(0, 16)]));
+    await nativePages();
+    await show();
+    display.createFolder(ids.slice(0, 2));
+    await settle();
+    const extractionFolder = display._folderIcons.find(icon =>
+        ids.slice(0, 2).every(id => icon.getAppIds().includes(id)));
+    assert(pages(display).map(page => page.length).join(',') === '15',
+        'folder extraction starts with fifteen top-level items');
+    extractionFolder.open();
+    await settle();
+    const extracted = extractionFolder.view.getAllItems()[0];
+    const extractedId = extracted.id;
+    await startDrag(extracted);
+    pointer.notify_absolute_motion(GLib.get_monotonic_time(), ...point(display, 0.05));
+    await Scripting.sleep(700);
+    pointer.notify_absolute_motion(GLib.get_monotonic_time(), ...point(display._nextPageIndicator, 0.1));
+    await Scripting.sleep(1200);
+    assert(display._grid.currentPage === 1, 'folder drag can navigate to the popup overflow page');
+    pointer.notify_absolute_motion(GLib.get_monotonic_time(), ...point(display));
+    await Scripting.sleep(400);
+    await release();
+    assert(!extractionFolder.getAppIds().includes(extractedId) && display._items.has(extractedId),
+        'drop on the overflow page extracts the folder member into the popup');
+    const extractedOrder = pages(display);
+    assert(extractedOrder.map(page => page.length).join(',') === '15,1',
+        'folder extraction creates only the required popup overflow page');
+    const extractedNativeOrder = await nativePages();
+    assert(extractedNativeOrder.length === 1 &&
+        JSON.stringify(extractedNativeOrder.flat()) === JSON.stringify(extractedOrder.flat()),
+    'folder extraction shares order without creating an unnecessary Overview page');
+    root.set_strv('folder-children', []);
     global.settings.set_strv('favorite-apps', []);
     await nativePages();
     const initialPages = [ids.slice(0, capacity).reverse(), ids.slice(capacity, capacity + 15),
@@ -343,6 +380,9 @@ export async function run() {
     let expectedPages = JSON.stringify(pages(display));
     assert(JSON.stringify(popupPages(await nativePages())) === expectedPages,
         'pointer reorder synchronizes to GNOME');
+    assert(pages(native).length === Math.ceil(pages(display).flat().length / native._grid.itemsPerPage) &&
+        pages(native).slice(0, -1).every(page => page.length === native._grid.itemsPerPage),
+    'pointer reorder saves Overview-sized pages rather than popup-sized pages');
     native._moveItem(native._items.get(moved), 1, 0);
     native._savePages();
     await show();
@@ -369,6 +409,8 @@ export async function run() {
     expectedPages = JSON.stringify(pages(display));
     assert(JSON.stringify(popupPages(await nativePages())) === expectedPages,
         'cross-page move synchronizes to GNOME');
+    assert(pages(native).length === Math.ceil(crossPageOrder.flat().length / native._grid.itemsPerPage),
+        'cross-page move creates only pages required by Overview capacity');
     await show();
 
     first = display._grid.getItemsAtPage(0);
@@ -435,10 +477,13 @@ export async function run() {
     await settle();
     const source = folder.view.getAllItems()[0];
     const removedId = source.id;
+    const savedBeforeCancel = global.settings.get_value('app-picker-layout');
     await startDrag(source);
     await press(Clutter.KEY_Escape);
     await release();
     assert(!source._draggable._grab, 'Escape cancels folder drag and releases modal grab');
+    assert(global.settings.get_value('app-picker-layout').equal(savedBeforeCancel),
+        'cancelling a folder drag preserves the saved layout');
     // Return to the popup grid, not the desktop outside its drop area. Native
     // folder dragging dismisses the overlay after dwelling outside the folder.
     await dragTo(source, display, 0.05);
@@ -482,11 +527,14 @@ export async function run() {
         'searching and clearing search leave the saved layout unchanged');
     display.goToPage(0);
     await settle();
+    const orderBeforeClose = JSON.stringify(pages(display));
     await startDrag(display._grid.getItemsAtPage(0).find(item => item.app));
     launcher.menu.close();
     await release();
     assert(DND.dragMonitors.length === monitorCount, 'closing popup during drag clears native drag monitors');
     assert(Main.modalCount === modalCount, 'closing popup during drag releases input grabs');
+    assert(JSON.stringify(pages(display)) === orderBeforeClose,
+        'closing popup during drag preserves application order');
     await show();
     display.createFolder(display._grid.getItemsAtPage(0).filter(item => item.app).slice(0, 2).map(item => item.id));
     await settle();

@@ -249,6 +249,17 @@
     background-color: #ffffff;
 }
 
+.panthea-window-indicators {
+    spacing: 2px;
+    height: 4px;
+}
+
+.panthea-window-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 4px;
+}
+
 .panthea-dash.panthea-dark-dock .dash-separator {
     background-color: rgba(255, 255, 255, 0.2);
 }
