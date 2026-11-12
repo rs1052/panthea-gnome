@@ -26,12 +26,18 @@ export default class PantheaPreferences extends ExtensionPreferences {
         window.add(applications);
 
         const dock = new Adw.PreferencesPage({title: 'Dock & Panel', icon_name: 'focus-windows-symbolic'});
+        const appearance = new Adw.PreferencesGroup({title: 'Appearance'});
+        this._switch(appearance, settings, 'automatic-translucency', 'Panel Translucency',
+            'Automatically transparent or opaque based on the wallpaper.');
+        dock.add(appearance);
         const behavior = new Adw.PreferencesGroup({title: 'Dock'});
         const size = new Adw.ComboRow({title: 'Icon Size', model: Gtk.StringList.new(['Small', 'Medium', 'Large'])});
         settings.bind('dock-icon-size', size, 'selected', Gio.SettingsBindFlags.DEFAULT);
         behavior.add(size);
         this._switch(behavior, settings, 'show-apps-button', 'Show Apps Button',
             "Show the button that opens GNOME's application grid.");
+        this._switch(behavior, settings, 'workspace-controls', 'Workspace Controls',
+            'Show workspace tiles and the New Workspace button.');
         this._switch(behavior, settings, 'window-count-indicators', 'Window Count Indicators',
             'Show up to four dots per application, colored from its icon.');
         dock.add(behavior);
@@ -62,10 +68,6 @@ export default class PantheaPreferences extends ExtensionPreferences {
             return false;
         });
         dock.add(hiding);
-        const appearance = new Adw.PreferencesGroup({title: 'Appearance'});
-        this._switch(appearance, settings, 'automatic-translucency', 'Panel Translucency',
-            'Automatically transparent or opaque based on the wallpaper.');
-        dock.add(appearance);
         window.add(dock);
 
         const visibility = new Adw.PreferencesPage({title: 'Visibility', icon_name: 'view-reveal-symbolic'});

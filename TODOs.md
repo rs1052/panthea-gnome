@@ -11,3 +11,4 @@
     - Default settings that cannot be changed: Placement: inline, Position (relative to GNOME's laptop display slider): Below, Minimum brightness of 0%, no contrast sliders, Adjust all external displays together: on? (confirm if that's what is expected of users)
 - Compatibility checks when other popular extensions are installed
 - Date format in panel
+- Hide events/world clocks in panel dropdown - figure out which extension had this

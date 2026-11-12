@@ -25,6 +25,10 @@
       <default>true</default>
       <summary>Show the dock's Show Apps button</summary>
     </key>
+    <key name="workspace-controls" type="b">
+      <default>true</default>
+      <summary>Show workspace tiles and the New Workspace button in both docks</summary>
+    </key>
     <key name="window-count-indicators" type="b">
       <default>true</default>
       <summary>Show dominant-color window-count dots in both docks</summary>

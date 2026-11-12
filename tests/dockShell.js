@@ -17,6 +17,9 @@ function assert(value, message) {
 }
 
 async function settle() {
+    // The native helper exits after 30 seconds without a request. Keep its
+    // windows alive throughout the geometry matrix, not just its first cases.
+    await Scripting.waitTestWindows();
     await Scripting.sleep(350);
     await Scripting.waitLeisure();
 }
@@ -29,6 +32,72 @@ function matchingBounds(actor, expected, message) {
     const actual = bounds(actor);
     assert(actual.every((value, index) => Math.abs(value - expected[index]) <= 1),
         `${message}: ${actual} matches ${expected}`);
+}
+
+function dockElements(dash, workspaces) {
+    const elements = new Map([['background', dash._background]]);
+    for (const item of dash._box.get_children()) {
+        const icon = item.child;
+        if (!icon?.app || item.animatingOut)
+            continue;
+        const id = icon.app.get_id();
+        elements.set(`${id} button`, icon);
+        elements.set(`${id} tile`, icon.icon);
+        elements.set(`${id} icon`, icon.icon.icon);
+        if (icon._dot.visible && icon._dot.opacity > 0)
+            elements.set(`${id} indicator`, icon._dot);
+        const indicators = icon._pantheaIndicators?.actor;
+        if (indicators?.visible) {
+            elements.set(`${id} indicators`, indicators);
+            indicators.get_children().forEach((dot, index) => {
+                if (dot.visible)
+                    elements.set(`${id} dot ${index}`, dot);
+            });
+        }
+    }
+    if (dash._separator)
+        elements.set('application separator', dash._separator);
+    if (workspaces.actor.visible) {
+        elements.set('workspace separator', workspaces.separator);
+        elements.set('workspace viewport', workspaces.scroll);
+        for (const item of workspaces._box.get_children()) {
+            const id = item.entry.workspace.index();
+            elements.set(`workspace ${id} button`, item.button);
+            elements.set(`workspace ${id} tile`, item.icon.icon);
+            item.icon.icon.get_children().forEach((child, index) =>
+                elements.set(`workspace ${id} icon ${index}`, child));
+        }
+    }
+    if (dash._showAppsIcon.visible) {
+        elements.set('Show Apps button', dash.showAppsButton);
+        elements.set('Show Apps tile', dash._showAppsIcon.icon);
+        elements.set('Show Apps icon', dash._showAppsIcon.icon.icon);
+    }
+    return elements;
+}
+
+function desktopBounds(dock) {
+    return new Map([...dockElements(dock.dash, dock.dash.workspaces)]
+        .map(([name, actor]) => [name, bounds(actor)]));
+}
+
+function matchingDock(dock, expected) {
+    const elements = dockElements(dock.nativeDash, dock._nativeWorkspaces);
+    assert(elements.size === expected.size, 'both docks contain the same elements');
+    for (const [name, rect] of expected) {
+        assert(elements.has(name), `Overview contains ${name}`);
+        matchingBounds(elements.get(name), rect, `Overview ${name}`);
+    }
+}
+
+async function screenshot(name) {
+    const output = GLib.getenv('PANTHEA_TEST_OUTPUT');
+    if (!output)
+        return;
+    const stream = Gio.File.new_for_path(`${output}/${name}.png`)
+        .replace(null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
+    await new Shell.Screenshot().screenshot(false, stream);
+    stream.close(null);
 }
 
 async function checkHandoff(dock, desktop, overview, action, message, animated = false) {
@@ -174,6 +243,10 @@ async function checkFadeInput(dock) {
     const rect = bounds(button);
     let clicked = false;
     const id = button.connect('clicked', () => { clicked = true; });
+    const workspaceButton = dock.dash.workspaces._box.get_first_child().button;
+    const workspaceRect = bounds(workspaceButton);
+    let workspaceClicked = false;
+    const workspaceId = workspaceButton.connect('clicked', () => { workspaceClicked = true; });
     const tracker = {confirmSwipe() {}};
     try {
         Main.overview._gestureBegin(tracker);
@@ -184,8 +257,11 @@ async function checkFadeInput(dock) {
                 'input check runs while the desktop dock is fading');
         await click(rect);
         assert(!clicked, 'fading desktop buttons cannot activate in Overview');
+        await click(workspaceRect);
+        assert(!workspaceClicked, 'fading workspace buttons cannot activate in Overview');
     } finally {
         button.disconnect(id);
+        workspaceButton.disconnect(workspaceId);
         Main.overview._gestureEnd(tracker, 100, 0);
         await settle();
     }
@@ -214,16 +290,23 @@ export async function run() {
     const originalScale = context.scale_factor;
     const favorites = global.settings.get_strv('favorite-apps');
     try {
+        // A running non-favorite exposes the application separator, indicator
+        // rows and populated workspace tiles that an idle dock does not have.
+        for (let i = 0; i < 2; i++)
+            await Scripting.createTestWindow({width: 300, height: 200});
+        await Scripting.waitTestWindows();
+        await settle();
         for (const scale of [1, 2]) {
             context.scale_factor = scale;
             for (const size of [0, 2, 1]) {
-                for (const showApps of [true, false]) {
+                for (const [workspaceControls, showApps] of [[true, true], [true, false], [false, true], [false, false]]) {
                     settings.set_int('dock-icon-size', size);
+                    settings.set_boolean('workspace-controls', workspaceControls);
                     settings.set_boolean('show-apps-button', showApps);
                     await settle();
-                    const background = bounds(dock.background);
-                    const icon = dock.dash._box.get_first_child().child.icon.icon;
-                    const iconBounds = bounds(icon);
+                    const desktop = desktopBounds(dock);
+                    if (scale === 1 && size === 1 && showApps && workspaceControls)
+                        await screenshot('dock-matching-desktop');
                     for (const apps of [false, true]) {
                         if (apps)
                             Main.overview.showApps();
@@ -231,17 +314,18 @@ export async function run() {
                             Main.overview.show();
                         await settle();
                         assert(dock.nativeDash.iconSize === dock.dash.iconSize,
-                            `matching icon size, scale ${scale}, size ${size}, Show Apps ${showApps}`);
-                        matchingBounds(dock.nativeDash._background, background, 'Overview background');
-                        matchingBounds(dock.nativeDash._box.get_first_child().child.icon.icon,
-                            iconBounds, 'Overview first icon');
+                            `matching icon size, scale ${scale}, size ${size}, workspaces ${workspaceControls}, Show Apps ${showApps}`);
+                        matchingDock(dock, desktop);
+                        if (scale === 1 && size === 1 && showApps && workspaceControls && !apps)
+                            await screenshot('dock-matching-overview');
                         Main.overview.hide();
                         await settle();
-                        matchingBounds(dock.background, background, 'desktop background restored');
+                        matchingBounds(dock.background, desktop.get('background'), 'desktop background restored');
                     }
                 }
             }
         }
+        settings.set_boolean('workspace-controls', true);
         settings.set_boolean('show-apps-button', true);
         for (const scale of [1, 2]) {
             context.scale_factor = scale;
@@ -259,6 +343,7 @@ export async function run() {
             .slice(0, 30).map(app => app.get_id()));
         settings.set_int('dock-icon-size', 2);
         await settle();
+        const crowdedElements = desktopBounds(dock);
         const crowded = bounds(dock.background);
         const frames = [];
         const paintId = global.stage.connect('after-paint', () => {
@@ -275,6 +360,7 @@ export async function run() {
             frame.every((value, index) => Math.abs(value - crowded[index]) <= 1)),
         'Overview entry keeps background bounds stable on every painted frame');
         matchingBounds(dock.nativeDash._background, crowded, 'crowded Overview dock');
+        matchingDock(dock, crowdedElements);
         assert(dock.dash.iconSize < 64, 'crowded docks shrink icons together');
         Main.overview.hide();
         await settle();
@@ -295,8 +381,10 @@ export async function run() {
             Main.overview.hide();
             await settle();
             matchingBounds(dock.background, overview, 'live Overview size change matches desktop');
+            const desktop = desktopBounds(dock);
             Main.overview.show();
             await settle();
+            matchingDock(dock, desktop);
         }
         for (const mode of ['unused', 'focused-maximized', 'focused-overlap', 'any-overlap', 'never']) {
             settings.set_string('dock-hide-mode', mode);
@@ -335,6 +423,7 @@ export async function run() {
     assert(nativeDash._background.opacity === 255 && nativeDash._dashContainer.opacity === 255,
         'disabling mid-gesture restores native opacities');
     assert(dock._transition._signals._connections.length === 0, 'disable disconnects all handoff signals');
+    assert(dock._separatorStopped && dock._separatorId === 0, 'disable stops separator size synchronization');
     Main.overview._gestureEnd(tracker, 100, 0);
     await settle();
     assert(!Main.overview.dash.has_style_class_name('panthea-dash'), 'native Dash styling restored');

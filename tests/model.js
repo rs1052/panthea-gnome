@@ -62,6 +62,8 @@ assert(/<key name="show-apps-button" type="b">\s*<default>true<\/default>/.test(
     'Show Apps Button defaults to shown');
 assert(/<key name="window-count-indicators" type="b">\s*<default>true<\/default>/.test(schema),
     'Window Count Indicators default to enabled');
+assert(/<key name="workspace-controls" type="b">\s*<default>true<\/default>/.test(schema),
+    'Workspace Controls default to enabled');
 const visibility = [...QUICK_SETTINGS, ...QUICK_SETTINGS_INDICATORS, ...TOP_PANEL];
 assert(visibility.length === 20, 'All 20 existing visibility settings are retained');
 for (const [key] of visibility)

@@ -251,13 +251,18 @@
 
 .panthea-window-indicators {
     spacing: 2px;
-    height: 4px;
+    height: 5px;
 }
 
 .panthea-window-dot {
     width: 4px;
     height: 4px;
     border-radius: 4px;
+}
+
+.panthea-window-indicators:active .panthea-window-dot {
+    width: 5px;
+    height: 5px;
 }
 
 .panthea-dash.panthea-dark-dock .dash-separator {
@@ -284,4 +289,42 @@
 .panthea-dash.panthea-light-dock .overview-tile:hover .overview-icon,
 .panthea-dash.panthea-light-dock .show-apps:hover .overview-icon {
     background-color: rgba(0, 0, 0, 0.12);
+}
+
+/* Compact workspace faces sit inside unchanged native Dash hit targets. */
+.panthea-dash .dash-item-container .panthea-workspace-button .overview-icon,
+.panthea-dash .dash-item-container .panthea-workspace-button:hover .overview-icon,
+.panthea-dash .dash-item-container .panthea-workspace-button:checked .overview-icon {
+    background-color: transparent;
+}
+
+.panthea-workspace-tile {
+    background-color: rgba(255, 255, 255, 0.14);
+    border-radius: 6px;
+}
+
+.panthea-workspace-button:hover .panthea-workspace-tile {
+    background-color: rgba(255, 255, 255, 0.26);
+}
+
+.panthea-light-dock .panthea-workspace-tile {
+    background-color: rgba(0, 0, 0, 0.07);
+}
+
+.panthea-light-dock .panthea-workspace-button:hover .panthea-workspace-tile {
+    background-color: rgba(0, 0, 0, 0.15);
+}
+
+/* The current workspace stays lighter than inactive and hovered tiles. */
+.panthea-workspace-button:checked .panthea-workspace-tile {
+    background-color: rgba(255, 255, 255, 0.65);
+    color: #333333;
+}
+
+.panthea-light-dock .panthea-workspace-button:checked .panthea-workspace-tile {
+    background-color: rgba(255, 255, 255, 0.65);
+}
+
+.panthea-dash .panthea-workspace-button:focus .overview-icon {
+    box-shadow: inset 0 0 0 2px -st-accent-color;
 }

@@ -53,6 +53,7 @@ case "${1:-check}" in
                 --layout) test_script="$root/tests/layoutShell.js" ;;
                 --indicators) test_script="$root/tests/indicatorsShell.js" ;;
                 --dock) test_script="$root/tests/dockShell.js" ;;
+                --workspaces) test_script="$root/tests/workspacesShell.js" ;;
                 *) printf 'Unknown test option: %s\n' "$argument" >&2; exit 2 ;;
             esac
         done

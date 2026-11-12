@@ -112,9 +112,10 @@ function checkRunningIndicators(dash) {
         const icon = bounds(app.icon.icon);
         const highlight = bounds(app.icon);
         const count = custom ? indicators.count : 1;
-        assert(Math.abs(dot.width - (4 * count + 2 * (count - 1)) * scale) < 1 &&
-            Math.abs(dot.height - 4 * scale) < 1,
-            'running indicators are subtle 4px dots');
+        const size = custom && indicators.onCurrentWorkspace ? 5 : 4;
+        assert(Math.abs(dot.width - (size * count + 2 * (count - 1)) * scale) < 1 &&
+            Math.abs(dot.height - (custom ? 5 : 4) * scale) < 1,
+            'running indicators use workspace-aware sizes in a stable row');
         if (custom) {
             assert(app._dot.opacity === 0 &&
                 indicators.actor.get_children().filter(child => child.visible).length === count &&

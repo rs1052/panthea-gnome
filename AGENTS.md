@@ -2,7 +2,7 @@
 
 ## Project
 
-Panthea is a native GNOME Shell extension targeting GNOME 50 on Wayland. It brings selected Pantheon-inspired features into GNOME while preserving GNOME's native behavior and appearance.
+Panthea is a native GNOME Shell extension for Wayland. It brings selected Pantheon-inspired features into GNOME while preserving GNOME's native behavior and appearance.
 
 ## Development guidelines
 
@@ -13,7 +13,7 @@ Panthea is a native GNOME Shell extension targeting GNOME 50 on Wayland. It brin
 - **Simplicity:** Prefer straightforward solutions with minimal code, dependencies, and abstractions. Avoid unnecessary settings and features.
 - **Native appearance:** Inherit GNOME's theme, colors, fonts, scaling, and accessibility settings whenever possible.
 - **Clean lifecycle:** Restore original GNOME behavior when disabled. Disconnect signals, remove resources, and avoid permanent system changes.
-- **Compatibility:** Target the current GNOME version. Don't add speculative compatibility code for future releases.
+- **Compatibility:** Use `shell-version` in `metadata.json` as the source of truth for supported GNOME versions. Don't add speculative compatibility code for future releases.
 - **Testing:** Test affected functionality and fix actual problems. Avoid extensive test infrastructure, repeated validation, or performance benchmarks unless necessary.
 
 ## References
