@@ -36,19 +36,27 @@ assert(dominantColor(image([255, 0, 0, 255, 12, 34, 56, 78], 4, 8)) === 'rgb(230
     'Row padding is not sampled');
 assert(dominantColor(image([255, 0, 0, 0])) === null, 'Transparent icons use theme fallback');
 for (const gray of [0, 64, 128, 153, 192, 255]) {
-    assert(dominantColor(image([gray, gray, gray, 255])) === 'rgb(64,64,64)',
-        `Monochrome ${gray} icons get dark gray dots`);
+    assert(dominantColor(image([gray, gray, gray, 255])) === 'rgb(255,255,255)',
+        `Monochrome ${gray} icons get white dots`);
     assert(dominantColor(image([gray, gray, gray, 255, 255, 128, 0, 255])) === 'rgb(230,155,80)',
         `Neutral ${gray} pixels do not dilute icon colors`);
 }
-assert(dominantColor(image([240, 245, 250, 255])) === 'rgb(64,64,64)',
-    'Near-white icons use dark gray rather than a faint tint');
+assert(dominantColor(image([240, 245, 250, 255])) === 'rgb(255,255,255)',
+    'Near-white icons use white rather than a faint tint');
 assert(dominantColor(image([128, 135, 140, 255, 0, 0, 255, 255])) === 'rgb(80,80,230)',
     'Near-gray pixels do not dilute icon colors');
 assert(dominantColor(image([255, 255, 0, 255])) === 'rgb(230,230,80)',
     'Bright saturated colors are not excluded');
-assert(dominantColor(image([255, 0, 0, 255, 0, 255, 255, 255])) === 'rgb(64,64,64)',
-    'Colors averaging to neutral use dark gray');
+assert(dominantColor(image([255, 0, 0, 255, 0, 255, 255, 255])) === 'rgb(230,80,80)',
+    'Unrelated hues select a stable winner instead of averaging to gray');
+assert(dominantColor(image([10, 10, 14, 255, 26, 26, 30, 255])) === 'rgb(255,255,255)',
+    'Tiny channel differences in dark pixels do not become saturated blue');
+assert(dominantColor(image([...Array(99).fill([61, 56, 70, 255]).flat(), 220, 50, 65, 255])) ===
+    'rgb(230,80,93)', 'A thin red hand wins over a muted purple clock face');
+assert(dominantColor(image([...Array(999).fill([26, 26, 27, 255]).flat(), 0, 0, 255, 255])) ===
+    'rgb(255,255,255)', 'An isolated colored pixel does not tint a neutral icon');
+assert(dominantColor(image([255, 0, 10, 255, 255, 10, 0, 255])) === 'rgb(230,80,80)',
+    'Similar reds on either side of the hue wrap share one group');
 assert(DOCK_HIDE_MODES.length === 5, 'Five Hide Dock radio choices');
 assert(QUICK_SETTINGS.length === 6, 'All five JP tile controls plus Power Mode');
 assert(QUICK_SETTINGS.every(([key]) => key.startsWith('show-qs-')),

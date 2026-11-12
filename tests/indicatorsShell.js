@@ -66,17 +66,20 @@ export async function run() {
     const workspace = global.workspace_manager.get_workspace_by_index(1);
     windows[1].change_workspace(workspace);
     await settle();
-    assert(findIcon()._pantheaIndicators.count === 4, 'minimized and other-workspace windows count');
+    assert(findIcon()._pantheaIndicators.count === 4, 'minimized local windows count, other-workspace windows do not');
     const originalWorkspace = global.workspace_manager.get_active_workspace();
+    windows[1].change_workspace(originalWorkspace);
+    await settle();
     // Keep this empty workspace available while testing a switch away and back.
     Main.wm.keepWorkspaceAlive(originalWorkspace, 15000);
     const originalWorkspaces = windows.map(window => window.get_workspace());
     const workspaceIndicators = [dock.dash, dock.nativeDash].map(dash => findIcon(dash)._pantheaIndicators);
     const originalColors = workspaceIndicators.map(dots => dots._color);
-    const checkWorkspace = (current, message) => {
+    const checkWorkspace = (current, message, count = 1) => {
         for (const dots of workspaceIndicators) {
             assert(dots.onCurrentWorkspace === current && dots.actor.opacity === 255 &&
-                dots.count === 4, `${message}: matching workspace presence, opacity, and unchanged count`);
+                dots.count === count && dots.actor.get_children().filter(dot => dot.visible).length === count,
+            `${message}: matching workspace presence, opacity, and ${count} visible dots`);
             const size = current ? 5 : 4;
             // Overview defers style updates while its Dash is unmapped.
             dots.actor.ensure_style();
@@ -87,7 +90,7 @@ export async function run() {
             `${message}: ${size}px dots`);
             const color = dots.actor.get_first_child().get_theme_node().get_background_color();
             assert(current ? color.red === 230 && color.green === 80 && color.blue === 80 :
-                color.red === 153 && color.green === 153 && color.blue === 153 && color.alpha === 255,
+                color.red === 136 && color.green === 136 && color.blue === 136 && color.alpha === 255,
             `${message}: ${current ? 'full icon color' : 'opaque neutral gray'}`);
         }
     };
@@ -96,7 +99,7 @@ export async function run() {
             dots._color = 'rgb(230,80,80)';
             dots._syncStyle();
         }
-        checkWorkspace(true, 'an app spanning workspaces has full-color dots');
+        checkWorkspace(true, 'local window counts are capped at four full-color dots', 4);
         for (const window of windows)
             window.change_workspace(workspace);
         await settle();
@@ -112,8 +115,8 @@ export async function run() {
                     dash.add_style_class_name(appearance);
                     dots._syncStyle();
                     const color = dots.actor.get_first_child().get_theme_node().get_background_color();
-                    assert(color.red === 153 && color.green === 153 && color.blue === 153 && color.alpha === 255,
-                        `${appearance}: remote dots use fully opaque #999999`);
+                    assert(color.red === 136 && color.green === 136 && color.blue === 136 && color.alpha === 255,
+                        `${appearance}: remote dots use fully opaque #888888`);
                 }
             } finally {
                 for (const name of classes)
@@ -126,13 +129,19 @@ export async function run() {
         windows[0].change_workspace(originalWorkspace);
         await settle();
         assert(windows[0].minimized, 'workspace cue test retains a minimized window');
-        checkWorkspace(true, 'a minimized window on the current workspace still counts as present');
+        checkWorkspace(true, 'one minimized local window shows one dot despite four windows elsewhere');
+        await screenshot('indicator-workspace-one-local');
+        windows[2].change_workspace(originalWorkspace);
+        await settle();
+        checkWorkspace(true, 'two local windows show two dots despite three windows elsewhere', 2);
+        await screenshot('indicator-workspace-two-local');
+        windows[2].change_workspace(workspace);
         windows[0].change_workspace(workspace);
         await settle();
         checkWorkspace(false, 'moving the last local window away makes the dots smaller and gray');
         workspace.activate(global.get_current_time());
         await settle();
-        checkWorkspace(true, 'switching to the app workspace restores full color');
+        checkWorkspace(true, 'switching to the app workspace restores full color and local count', 4);
         originalWorkspace.activate(global.get_current_time());
         await settle();
         checkWorkspace(false, 'switching away restores the gray cue');
@@ -171,6 +180,55 @@ export async function run() {
     assert(indicator.actor.visible && findIcon()._dot.opacity === 0, 'on restores count dots live');
 
     const colors = dock.dash._indicatorColors;
+    // Exercise installed icons through the same theme lookup and decoder as the dock.
+    for (const [id, expected] of [
+        ['com.brave.Origin.desktop', 'neutral'],
+        ['org.gnome.clocks.desktop', 'red'],
+        ['com.brave.Browser.desktop', 'color'],
+        ['org.gnome.Nautilus.desktop', 'blue'],
+        ['org.gnome.Ptyxis.desktop', 'blue'],
+        ['com.microsoft.VSCode.desktop', 'blue'],
+        ['discord.desktop', 'blue'],
+        ['org.gnome.Software.desktop', 'color'],
+        ['org.gnome.Calculator.desktop', 'color'],
+        ['org.mozilla.firefox.desktop', 'color'],
+    ]) {
+        const app = Gio.DesktopAppInfo.new(id);
+        if (!app) {
+            print(`SKIP: installed icon color for ${id}: app not installed`);
+            continue;
+        }
+        const color = await colors.get(app.get_icon());
+        const rgb = color?.match(/^rgb\((\d+),(\d+),(\d+)\)$/)?.slice(1).map(Number);
+        assert(rgb?.length === 3 && rgb.every(channel => channel >= 0 && channel <= 255),
+            `${id}: installed icon produces valid RGB (${color})`);
+        const [red, green, blue] = rgb;
+        if (expected === 'neutral')
+            assert(color === 'rgb(255,255,255)', `${id}: monochrome icon uses white`);
+        else if (expected === 'red')
+            assert(red > green && red > blue, `${id}: red hand wins over muted clock face`);
+        else if (expected === 'blue')
+            assert(blue > red && blue > green, `${id}: blue icon retains a blue accent`);
+        else
+            assert(Math.max(...rgb) - Math.min(...rgb) >= 100,
+                `${id}: colored icon retains a chromatic accent`);
+        if (expected === 'neutral' || expected === 'red') {
+            const texture = findIcon().icon.icon;
+            const originalIcon = texture.gicon;
+            try {
+                texture.gicon = app.get_icon();
+                await indicator._readColor();
+                await settle();
+                const rendered = indicator.actor.get_first_child().get_theme_node().get_background_color();
+                assert(rendered.red === red && rendered.green === green && rendered.blue === blue,
+                    `${id}: rendered active dots match the extracted accent`);
+                await screenshot(`indicator-accent-${expected}`);
+            } finally {
+                texture.gicon = originalIcon;
+                await indicator._readColor();
+            }
+        }
+    }
     const path = `${GLib.getenv('PANTHEA_TEST_OUTPUT')}/indicator-red.svg`;
     GLib.file_set_contents(path,
         '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><path fill="red" d="M0 0h64v64H0z"/></svg>');
@@ -209,8 +267,15 @@ export async function run() {
 
     const context = St.ThemeContext.get_for_stage(global.stage);
     const originalScale = context.scale_factor;
+    const workspaceControls = settings.get_boolean('workspace-controls');
+    // Workspace tiles can recenter the whole dock as windows move. Isolate
+    // indicator geometry from those independent layout changes.
+    settings.set_boolean('workspace-controls', false);
+    await settle();
     try {
         for (const scale of [1, 2]) {
+            // Refresh the helper's 30-second idle timeout during this long suite.
+            await Scripting.waitTestWindows();
             context.scale_factor = scale;
             for (const size of [0, 1, 2]) {
                 settings.set_int('dock-icon-size', size);
@@ -232,10 +297,10 @@ export async function run() {
                         const [iw, ih] = icon.icon.icon.get_transformed_size();
                         const [hx, hy] = icon.icon.get_transformed_position();
                         const [hw, hh] = icon.icon.get_transformed_size();
-                        assert(Math.abs(width - (current ? 26 : 22) * scale) < 1 && Math.abs(height - 5 * scale) < 1 &&
+                        assert(Math.abs(width - (current ? 26 : 4) * scale) < 1 && Math.abs(height - 5 * scale) < 1 &&
                             Math.abs(x + width / 2 - ix - iw / 2) <= 0.5 * scale &&
                             y >= iy + ih && x >= hx && x + width <= hx + hw && y + height <= hy + hh,
-                        `four ${current ? '5px colored' : '4px gray'} dots fit beneath ${dash === dock.dash ? 'desktop' : 'Overview'} icons at size ${dash.iconSize}, scale ${scale}`);
+                        `${current ? 'four 5px colored dots' : 'one 4px gray dot'} fit beneath ${dash === dock.dash ? 'desktop' : 'Overview'} icons at size ${dash.iconSize}, scale ${scale}`);
                         for (const dot of row.get_children().filter(child => child.visible)) {
                             const [, dy] = dot.get_transformed_position();
                             const [dw, dh] = dot.get_transformed_size();
@@ -257,6 +322,7 @@ export async function run() {
     } finally {
         context.scale_factor = originalScale;
         settings.set_int('dock-icon-size', 1);
+        settings.set_boolean('workspace-controls', workspaceControls);
     }
     await settle();
     const stream = Gio.File.new_for_path(`${GLib.getenv('PANTHEA_TEST_OUTPUT')}/window-count-indicators.png`)

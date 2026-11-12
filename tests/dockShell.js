@@ -100,6 +100,95 @@ async function screenshot(name) {
     stream.close(null);
 }
 
+async function checkRedisplaySizing(dock) {
+    const frames = [];
+    const id = global.stage.connect('after-paint', () => {
+        const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+        frames.push([...dockElements(dock.nativeDash, dock._nativeWorkspaces)]
+            .filter(([name]) => /^workspace \d+ tile$/.test(name) ||
+                (!name.startsWith('workspace ') && name.endsWith(' icon')))
+            .map(([name, actor]) => ({name, size: actor.get_transformed_size(),
+                expected: dock.dash.iconSize * scale})));
+    });
+    try {
+        // Native Dash chooses its own size on every redisplay. Repeated app
+        // updates must not accumulate texture-size animations at our size cap.
+        for (let i = 0; i < 8; i++) {
+            dock.nativeDash._queueRedisplay();
+            await Scripting.sleep(30);
+        }
+        await settle();
+    } finally {
+        global.stage.disconnect(id);
+    }
+    const bad = frames.flat().find(({size, expected}) =>
+        size.some(value => Math.abs(value - expected) > 1));
+    assert(frames.length > 0 && !bad,
+        `redisplay keeps rendered icons and workspace tiles at the shared size${bad ? `: ${JSON.stringify(bad)}` : ''}`);
+}
+
+function displayConfig(method, parameters = null) {
+    return new Promise((resolve, reject) => {
+        Gio.DBus.session.call('org.gnome.Mutter.DisplayConfig', '/org/gnome/Mutter/DisplayConfig',
+            'org.gnome.Mutter.DisplayConfig', method, parameters, null,
+            Gio.DBusCallFlags.NONE, -1, null, (connection, result) => {
+                try {
+                    resolve(connection.call_finish(result).deep_unpack());
+                } catch (error) {
+                    reject(error);
+                }
+            });
+    });
+}
+
+async function setMonitorScale(scale) {
+    const [serial, monitors, logicalMonitors] = await displayConfig('GetCurrentState');
+    const config = logicalMonitors.map(([x, y, , transform, primary, outputs]) =>
+        [x, y, scale, transform, primary, outputs.map(([connector]) => {
+            const [, modes] = monitors.find(([spec]) => spec[0] === connector);
+            const mode = modes.find(entry => entry[6]['is-current']?.deep_unpack());
+            assert(mode[5].some(value => Math.abs(value - scale) < 0.001),
+                `test monitor supports ${scale * 100}% scaling`);
+            return [connector, mode[0], {}];
+        })]);
+    // Apply temporarily, on the test session's private bus, never the host.
+    await displayConfig('ApplyMonitorsConfig',
+        new GLib.Variant('(uua(iiduba(ssa{sv}))a{sv})', [serial, 1, config, {}]));
+    await settle();
+}
+
+async function checkFractionalScaling(dock, settings) {
+    await setMonitorScale(1.25);
+    try {
+        assert(Main.layoutManager.primaryMonitor.geometry_scale === 1.25,
+            'dock checks run at actual 125% monitor scaling');
+        for (const size of [0, 2, 1]) {
+            settings.set_int('dock-icon-size', size);
+            await settle();
+            // The first entry after a scale change matters as much as repeats.
+            const desktop = desktopBounds(dock);
+            await screenshot(`dock-125-desktop-${size}`);
+            for (const apps of [false, true]) {
+                if (apps)
+                    Main.overview.showApps();
+                else
+                    Main.overview.show();
+                await settle();
+                matchingDock(dock, desktop);
+                await checkRedisplaySizing(dock);
+                await screenshot(`dock-125-${apps ? 'apps' : 'overview'}-${size}`);
+                Main.overview.hide();
+                await settle();
+                matchingBounds(dock.background, desktop.get('background'), '125% desktop bounds restored');
+            }
+        }
+        await checkDifferentGeometry(dock, '125% scaling');
+    } finally {
+        Main.overview.hide();
+        await setMonitorScale(1);
+    }
+}
+
 async function checkHandoff(dock, desktop, overview, action, message, animated = false) {
     const frames = [];
     const adjustment = Main.overview._overview.controls._stateAdjustment;
@@ -192,7 +281,8 @@ async function checkDifferentGeometry(dock, label) {
         // reversing before release and cancelling to either endpoint.
         let captured = false;
         const gesture = async (values, end) => {
-            const record = !captured && label === 'size 1, scale 1' && GLib.getenv('PANTHEA_TEST_OUTPUT');
+            const record = !captured && ['size 1, scale 1', '125% scaling'].includes(label) &&
+                GLib.getenv('PANTHEA_TEST_OUTPUT');
             let frame = 0;
             const tracker = {confirmSwipe() {}};
             Main.overview._gestureBegin(tracker);
@@ -200,7 +290,8 @@ async function checkDifferentGeometry(dock, label) {
                 Main.overview._gestureUpdate(tracker, value);
                 await Scripting.sleep(40);
                 if (record) {
-                    const stream = Gio.File.new_for_path(`${record}/dock-dissolve-${String(frame++).padStart(2, '0')}.png`)
+                    const prefix = label === '125% scaling' ? 'dock-125-handoff' : 'dock-dissolve';
+                    const stream = Gio.File.new_for_path(`${record}/${prefix}-${String(frame++).padStart(2, '0')}.png`)
                         .replace(null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
                     await new Shell.Screenshot().screenshot(false, stream);
                     stream.close(null);
@@ -296,6 +387,11 @@ export async function run() {
             await Scripting.createTestWindow({width: 300, height: 200});
         await Scripting.waitTestWindows();
         await settle();
+        Main.overview.show();
+        await settle();
+        await checkRedisplaySizing(dock);
+        Main.overview.hide();
+        await settle();
         for (const scale of [1, 2]) {
             context.scale_factor = scale;
             for (const size of [0, 2, 1]) {
@@ -337,6 +433,7 @@ export async function run() {
         }
         context.scale_factor = originalScale;
         await settle();
+        await checkFractionalScaling(dock, settings);
         await checkFadeInput(dock);
         global.settings.set_strv('favorite-apps', Shell.AppSystem.get_default().get_installed()
             .filter(app => app.should_show())
@@ -356,9 +453,10 @@ export async function run() {
         } finally {
             global.stage.disconnect(paintId);
         }
-        assert(frames.length > 0 && frames.every(frame =>
-            frame.every((value, index) => Math.abs(value - crowded[index]) <= 1)),
-        'Overview entry keeps background bounds stable on every painted frame');
+        const badFrame = frames.find(frame =>
+            frame.some((value, index) => Math.abs(value - crowded[index]) > 1));
+        assert(frames.length > 0 && !badFrame,
+            `Overview entry keeps background bounds stable on every painted frame${badFrame ? `: ${JSON.stringify({crowded, badFrame})}` : ''}`);
         matchingBounds(dock.nativeDash._background, crowded, 'crowded Overview dock');
         matchingDock(dock, crowdedElements);
         assert(dock.dash.iconSize < 64, 'crowded docks shrink icons together');
@@ -423,7 +521,7 @@ export async function run() {
     assert(nativeDash._background.opacity === 255 && nativeDash._dashContainer.opacity === 255,
         'disabling mid-gesture restores native opacities');
     assert(dock._transition._signals._connections.length === 0, 'disable disconnects all handoff signals');
-    assert(dock._separatorStopped && dock._separatorId === 0, 'disable stops separator size synchronization');
+    assert(dock._nativeSizeWorkId === null, 'disable stops native size synchronization');
     Main.overview._gestureEnd(tracker, 100, 0);
     await settle();
     assert(!Main.overview.dash.has_style_class_name('panthea-dash'), 'native Dash styling restored');

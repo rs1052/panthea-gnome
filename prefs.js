@@ -39,7 +39,7 @@ export default class PantheaPreferences extends ExtensionPreferences {
         this._switch(behavior, settings, 'workspace-controls', 'Workspace Controls',
             'Show workspace tiles and the New Workspace button.');
         this._switch(behavior, settings, 'window-count-indicators', 'Window Count Indicators',
-            'Show up to four dots per application, colored from its icon.');
+            'Count windows on the current workspace, up to four dots. Apps running elsewhere show one gray dot.');
         dock.add(behavior);
         const hiding = new Adw.PreferencesGroup({title: 'Hide Dock'});
         const buttons = new Map();
