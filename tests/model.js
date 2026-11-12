@@ -35,7 +35,20 @@ assert(dominantColor(image([0, 0, 255, 255, 255, 0, 0, 0])) === 'rgb(80,80,230)'
 assert(dominantColor(image([255, 0, 0, 255, 12, 34, 56, 78], 4, 8)) === 'rgb(230,80,80)',
     'Row padding is not sampled');
 assert(dominantColor(image([255, 0, 0, 0])) === null, 'Transparent icons use theme fallback');
-assert(dominantColor(image([0, 0, 0, 255])) === 'rgb(230,230,230)', 'Monochrome icons get neutral dots');
+for (const gray of [0, 64, 128, 153, 192, 255]) {
+    assert(dominantColor(image([gray, gray, gray, 255])) === 'rgb(64,64,64)',
+        `Monochrome ${gray} icons get dark gray dots`);
+    assert(dominantColor(image([gray, gray, gray, 255, 255, 128, 0, 255])) === 'rgb(230,155,80)',
+        `Neutral ${gray} pixels do not dilute icon colors`);
+}
+assert(dominantColor(image([240, 245, 250, 255])) === 'rgb(64,64,64)',
+    'Near-white icons use dark gray rather than a faint tint');
+assert(dominantColor(image([128, 135, 140, 255, 0, 0, 255, 255])) === 'rgb(80,80,230)',
+    'Near-gray pixels do not dilute icon colors');
+assert(dominantColor(image([255, 255, 0, 255])) === 'rgb(230,230,80)',
+    'Bright saturated colors are not excluded');
+assert(dominantColor(image([255, 0, 0, 255, 0, 255, 255, 255])) === 'rgb(64,64,64)',
+    'Colors averaging to neutral use dark gray');
 assert(DOCK_HIDE_MODES.length === 5, 'Five Hide Dock radio choices');
 assert(QUICK_SETTINGS.length === 6, 'All five JP tile controls plus Power Mode');
 assert(QUICK_SETTINGS.every(([key]) => key.startsWith('show-qs-')),

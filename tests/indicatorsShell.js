@@ -87,7 +87,7 @@ export async function run() {
             `${message}: ${size}px dots`);
             const color = dots.actor.get_first_child().get_theme_node().get_background_color();
             assert(current ? color.red === 230 && color.green === 80 && color.blue === 80 :
-                color.red === color.green && color.green === color.blue && color.alpha === 255,
+                color.red === 153 && color.green === 153 && color.blue === 153 && color.alpha === 255,
             `${message}: ${current ? 'full icon color' : 'opaque neutral gray'}`);
         }
     };
@@ -106,14 +106,14 @@ export async function run() {
             const original = classes.filter(name => dash.has_style_class_name(name));
             const dots = findIcon(dash)._pantheaIndicators;
             try {
-                for (const [appearance, gray] of [['panthea-dark-dock', 192], ['panthea-light-dock', 90]]) {
+                for (const appearance of classes) {
                     for (const name of classes)
                         dash.remove_style_class_name(name);
                     dash.add_style_class_name(appearance);
                     dots._syncStyle();
                     const color = dots.actor.get_first_child().get_theme_node().get_background_color();
-                    assert(color.red === gray && color.green === gray && color.blue === gray && color.alpha === 255,
-                        `${appearance}: remote dots use a fully opaque, theme-appropriate gray`);
+                    assert(color.red === 153 && color.green === 153 && color.blue === 153 && color.alpha === 255,
+                        `${appearance}: remote dots use fully opaque #999999`);
                 }
             } finally {
                 for (const name of classes)
