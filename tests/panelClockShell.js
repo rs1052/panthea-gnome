@@ -48,9 +48,11 @@ export async function run() {
     const after = before.add_minutes(1);
     const elsewhere = before.to_timezone(GLib.TimeZone.new_offset(3600));
     for (const date of [before, after, elsewhere, before.add_days(-10)]) {
-        assert(formatPanelClock(date, '12:00') === `${date.format('%A')}, ${date.format('%B')} ${date.get_day_of_month()}, 12:00`,
+        assert(formatPanelClock(date, '12:00') === `${date.format('%A')}, ${date.format('%B')} ${date.get_day_of_month()} 12:00`,
             `long date has a full weekday and month, without a padded day: ${date.format('%F %z')}`);
     }
+    assert(formatPanelClock(before, '\u20071:55 AM') === `${before.format('%A, %B %-d')} \u20071:55 AM`,
+        'date-time separator has no comma and preserves native time padding');
     assert(formatPanelClock(before, '') !== formatPanelClock(after, '') &&
         formatPanelClock(after, '') === formatPanelClock(elsewhere, ''),
     'date formatting follows midnight and the supplied time zone');
