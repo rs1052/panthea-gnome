@@ -29,6 +29,14 @@ export default class PantheaPreferences extends ExtensionPreferences {
         const appearance = new Adw.PreferencesGroup({title: 'Appearance'});
         this._switch(appearance, settings, 'automatic-translucency', 'Panel Translucency',
             'Automatically transparent or opaque based on the wallpaper.');
+        const dateFormat = new Adw.ComboRow({
+            title: 'Date Format',
+            subtitle: 'GNOME Default: Jan 1 12:00 PM\nFull date: Thursday, January 1, 12:00 PM',
+            subtitle_lines: 2,
+            model: Gtk.StringList.new(['GNOME Default', 'Full date']),
+        });
+        settings.bind('panel-date-format', dateFormat, 'selected', Gio.SettingsBindFlags.DEFAULT);
+        appearance.add(dateFormat);
         dock.add(appearance);
         const behavior = new Adw.PreferencesGroup({title: 'Dock'});
         const size = new Adw.ComboRow({title: 'Icon Size', model: Gtk.StringList.new(['Small', 'Medium', 'Large'])});

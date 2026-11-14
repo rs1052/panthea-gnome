@@ -10,6 +10,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Appearance} from './lib/appearance.js';
 import {Dock} from './lib/dock.js';
 import {Launcher} from './lib/launcher.js';
+import {PanelClock} from './lib/panelClock.js';
 import {Connections} from './lib/signals.js';
 import {Visibility} from './lib/visibility.js';
 
@@ -33,8 +34,10 @@ export default class PantheaExtension extends Extension {
             this._visibility = new Visibility(this._settings);
             this._syncLauncher();
             this._syncAppearance();
+            this._syncPanelClock();
             this._signals.connect(this._settings, 'changed::applications-enabled', () => this._syncLauncher());
             this._signals.connect(this._settings, 'changed::automatic-translucency', () => this._syncAppearance());
+            this._signals.connect(this._settings, 'changed::panel-date-format', () => this._syncPanelClock());
         } catch (error) {
             this.disable();
             throw error;
@@ -43,6 +46,8 @@ export default class PantheaExtension extends Extension {
 
     disable() {
         this._signals?.clear();
+        this._panelClock?.destroy();
+        this._panelClock = null;
         this._appearance?.destroy();
         this._appearance = null;
         this._launcher?.destroy();
@@ -76,6 +81,15 @@ export default class PantheaExtension extends Extension {
         } else {
             this._appearance?.destroy();
             this._appearance = null;
+        }
+    }
+
+    _syncPanelClock() {
+        if (this._settings.get_int('panel-date-format') === 1) {
+            this._panelClock ??= new PanelClock();
+        } else {
+            this._panelClock?.destroy();
+            this._panelClock = null;
         }
     }
 }

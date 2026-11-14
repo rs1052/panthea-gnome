@@ -59,6 +59,7 @@ bash scripts/panthea test --headless --dock
 bash scripts/panthea test --headless --dock --no-animations
 bash scripts/panthea test --headless --workspaces
 bash scripts/panthea test --headless --workspaces --no-animations
+bash scripts/panthea test --headless --panel-clock
 ```
 
 The tests use Fedora's `gnome-shell-test-tool`, an isolated settings backend, and the built extension bundle. The `--no-animations` run repeats the checks with GNOME animations disabled. Tests stop after two minutes if Shell does not finish. Screenshots are written to `/tmp/opencode/panthea-tests/`. The environment may log unavailable session services or input-method warnings that require comparison with an unmodified nested Shell before attribution.
@@ -116,6 +117,7 @@ Search does not run commands, query files, calculate expressions, or load Panthe
 
 ### Dock and panel
 
+- Date Format under Dock & Panel → Appearance offers Full date (the default), such as “Thursday, January 1”, and GNOME Default. The description shows an example of each format. The full format keeps the time and follows GNOME's 12/24-hour and seconds settings. Names follow the system locale. Changes apply live; selecting GNOME Default or disabling Panthea restores the native clock. Explicitly saved selections are preserved. The calendar and notification controls are unchanged.
 - The dock is centered at the bottom of the primary monitor. Changes to the primary monitor reposition it.
 - Small, Medium, and Large select maximum icon sizes of 32, 48, and 64 logical pixels. Icons shrink together when width or Overview's available dock height is limited. A brief fade switches between the desktop and Overview docks at their natural sizes and positions, without zooming or moving them. The outgoing dock fades out before the incoming dock fades in, avoiding doubled icons. The handoff follows GNOME's Overview progress, including reversed and cancelled gestures. Disabled animations switch immediately.
 - In Never mode, maximized windows stop 1-2 logical pixels above the visible dock. The reserved area follows its height when additional applications make the icons smaller.
@@ -182,6 +184,7 @@ The power-icon setting hides the icon only. Battery percentage continues to foll
 | `lib/appSearch.js` | Popup-owned native GridSearchResults and application tiles |
 | `lib/catalog.js` | Cached application metadata, native search, parental filtering |
 | `lib/appearance.js`, `lib/wallpaper.js` | Wallpaper analysis, adaptive backgrounds, native Overview styling |
+| `lib/panelClock.js` | Optional long panel date with native time and reversible label updates |
 | `lib/shellTargets.js` | GNOME 50 visibility actor paths |
 | `lib/visibility.js` | Reversible hidden parents that preserve native actor visibility bindings |
 | `prefs.js`, `shared/`, `schemas/` | Separate preferences UI, common labels/model logic, GSettings contract |

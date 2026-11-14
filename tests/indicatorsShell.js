@@ -200,11 +200,12 @@ export async function run() {
         }
         const color = await colors.get(app.get_icon());
         const rgb = color?.match(/^rgb\((\d+),(\d+),(\d+)\)$/)?.slice(1).map(Number);
-        assert(rgb?.length === 3 && rgb.every(channel => channel >= 0 && channel <= 255),
+        assert(expected === 'neutral' ? color === null :
+            rgb?.length === 3 && rgb.every(channel => channel >= 0 && channel <= 255),
             `${id}: installed icon produces valid RGB (${color})`);
-        const [red, green, blue] = rgb;
+        const [red, green, blue] = rgb ?? [];
         if (expected === 'neutral')
-            assert(color === 'rgb(255,255,255)', `${id}: monochrome icon uses white`);
+            assert(color === null, `${id}: monochrome icon uses theme fallback`);
         else if (expected === 'red')
             assert(red > green && red > blue, `${id}: red hand wins over muted clock face`);
         else if (expected === 'blue')
@@ -220,7 +221,9 @@ export async function run() {
                 await indicator._readColor();
                 await settle();
                 const rendered = indicator.actor.get_first_child().get_theme_node().get_background_color();
-                assert(rendered.red === red && rendered.green === green && rendered.blue === blue,
+                assert(expected === 'neutral' ?
+                    rendered.equal(findIcon()._dot.get_theme_node().get_background_color()) :
+                    rendered.red === red && rendered.green === green && rendered.blue === blue,
                     `${id}: rendered active dots match the extracted accent`);
                 await screenshot(`indicator-accent-${expected}`);
             } finally {
@@ -254,13 +257,34 @@ export async function run() {
         assert(await colors.get(Gio.ThemedIcon.new('panthea-nonexistent-icon-39821')) === null,
             'missing icon resolves to theme fallback without an error');
         assert(await colors.get(null) === null, 'unavailable icon resolves to theme fallback');
-        const savedColor = indicator._color;
-        indicator._color = null;
-        indicator._syncStyle();
-        assert(indicator.actor.get_first_child().get_theme_node().get_background_color()
-            .equal(findIcon()._dot.get_theme_node().get_background_color()), 'fallback uses the native theme color');
-        indicator._color = savedColor;
-        indicator._syncStyle();
+        for (const dash of [dock.dash, dock.nativeDash]) {
+            const dots = findIcon(dash)._pantheaIndicators;
+            const savedColor = dots._color;
+            const classes = ['panthea-dark-dock', 'panthea-light-dock'];
+            const original = classes.filter(name => dash.has_style_class_name(name));
+            try {
+                dots._color = null;
+                for (const appearance of classes) {
+                    for (const name of classes)
+                        dash.remove_style_class_name(name);
+                    dash.add_style_class_name(appearance);
+                    await settle();
+                    dots._syncStyle();
+                    const rendered = dots.actor.get_first_child().get_theme_node().get_background_color();
+                    const channel = appearance === 'panthea-light-dock' ? 51 : 255;
+                    assert(rendered.red === channel && rendered.green === channel &&
+                        rendered.blue === channel && rendered.alpha === 255,
+                    `${appearance}: monochrome dots follow the native theme color in both docks`);
+                }
+            } finally {
+                for (const name of classes)
+                    dash.remove_style_class_name(name);
+                for (const name of original)
+                    dash.add_style_class_name(name);
+                dots._color = savedColor;
+                dots._syncStyle();
+            }
+        }
     } finally {
         file.delete(null);
     }

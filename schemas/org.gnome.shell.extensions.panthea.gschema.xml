@@ -37,6 +37,11 @@
       <default>true</default>
       <summary>Adapt panel translucency to the wallpaper and use a translucent dock</summary>
     </key>
+    <key name="panel-date-format" type="i">
+      <range min="0" max="1"/>
+      <default>1</default>
+      <summary>Panel date format: GNOME Default or Full date</summary>
+    </key>
     <key name="show-qs-power-mode" type="b"><default>true</default><summary>Show Power Mode in Quick Settings</summary></key>
     <key name="show-qs-dark-style" type="b"><default>true</default><summary>Show Dark Style in Quick Settings</summary></key>
     <key name="show-qs-night-light" type="b"><default>true</default><summary>Show Night Light in Quick Settings</summary></key>

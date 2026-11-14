@@ -54,6 +54,7 @@ case "${1:-check}" in
                 --indicators) test_script="$root/tests/indicatorsShell.js" ;;
                 --dock) test_script="$root/tests/dockShell.js" ;;
                 --workspaces) test_script="$root/tests/workspacesShell.js" ;;
+                --panel-clock) test_script="$root/tests/panelClockShell.js" ;;
                 *) printf 'Unknown test option: %s\n' "$argument" >&2; exit 2 ;;
             esac
         done
@@ -107,7 +108,7 @@ case "${1:-check}" in
         gnome-extensions uninstall "$uuid"
         ;;
     *)
-        printf 'Usage: bash scripts/panthea {check|build|test [--headless|--devkit] [--layout|--indicators|--dock] [--no-animations]|dev|install|remove}\n' >&2
+        printf 'Usage: bash scripts/panthea {check|build|test [--headless|--devkit] [--layout|--indicators|--dock|--panel-clock] [--no-animations]|dev|install|remove}\n' >&2
         exit 2
         ;;
 esac

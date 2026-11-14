@@ -42,8 +42,9 @@ export function dominantColor(image) {
     const group = palette.filter(candidate => candidate.coverage >= visible * 0.005)
         .reduce((best, candidate) => candidate.weight > best.weight ? candidate : best,
             {weight: 0});
+    // Neutral icons use the native dot's theme-aware foreground color.
     if (!group.weight)
-        return 'rgb(255,255,255)';
+        return null;
 
     const rgb = group.rgb.map(value => value / group.weight);
     const max = Math.max(...rgb);
