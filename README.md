@@ -1,6 +1,6 @@
 # Panthea
 
-A native GNOME Shell extension for Fedora 44, GNOME 50/51, and Wayland. Panthea adds an Applications menu, a bottom dock, adaptive translucency, and visibility controls. It does not install Pantheon or replace Quick Settings.
+A native GNOME Shell extension for Fedora 44, GNOME, and Wayland. Panthea adds an Applications menu, a bottom dock, adaptive translucency, and visibility controls. It does not install Pantheon or replace Quick Settings.
 
 This is a personal-use extension. Review the code and test it before enabling it in your normal session. GNOME Shell extensions run inside the desktop process.
 
@@ -37,7 +37,7 @@ Open a terminal inside the development desktop to open preferences:
 gnome-extensions prefs panthea@local
 ```
 
-GNOME 50 uses `--devkit`, not the older `--nested` flag. The underlying documented command is `dbus-run-session gnome-shell --devkit --wayland`. Panthea's wrapper also isolates settings, extension installation, cache, and runtime files. The system bus and host PipeWire server remain shared. The development desktop is not a security sandbox.
+GNOME uses `--devkit`, not the older `--nested` flag. The underlying documented command is `dbus-run-session gnome-shell --devkit --wayland`. Panthea's wrapper also isolates settings, extension installation, cache, and runtime files. The system bus and host PipeWire server remain shared. The development desktop is not a security sandbox.
 
 Shell logs appear in the launching terminal. For normal-session logs, use:
 
@@ -87,7 +87,7 @@ gnome-extensions enable panthea@local
 gnome-extensions prefs panthea@local
 ```
 
-Do not use `Alt+F2`, `r` to restart a Wayland session. GNOME 50 no longer supports that workflow.
+Do not use `Alt+F2`, `r` to restart a Wayland session. GNOME no longer supports that workflow.
 
 Disable or remove Panthea with:
 
@@ -152,7 +152,7 @@ The Just Perfection inventory was checked against installed version 37 and the G
 
 ### Visibility options and source
 
-| Just Perfection key | Panthea setting | GNOME 50 target |
+| Just Perfection key | Panthea setting | GNOME target |
 | --- | --- | --- |
 | `quick-settings` | Quick Settings button (Top Panel) | Whole native menu button |
 | `quick-settings-dark-mode` | Dark Style tile (Quick Settings) | Dark Style tile |
@@ -185,7 +185,7 @@ The power-icon setting hides the icon only. Battery percentage continues to foll
 | `lib/catalog.js` | Cached application metadata, native search, parental filtering |
 | `lib/appearance.js`, `lib/wallpaper.js` | Wallpaper analysis, adaptive backgrounds, native Overview styling |
 | `lib/panelClock.js` | Optional long panel date with native time and reversible label updates |
-| `lib/shellTargets.js` | GNOME 50 visibility actor paths |
+| `lib/shellTargets.js` | GNOME visibility actor paths |
 | `lib/visibility.js` | Reversible hidden parents that preserve native actor visibility bindings |
 | `prefs.js`, `shared/`, `schemas/` | Separate preferences UI, common labels/model logic, GSettings contract |
 
@@ -193,7 +193,7 @@ The desktop dock uses a new instance of GNOME's Dash. Moving the existing Overvi
 
 The launcher uses an extension-owned GNOME `AppDisplay` for the unfiltered grid and `GridSearchResults` for application search. It reuses native `AppGrid`, `AppIcon`, folder views, dialogs, pagination, and drag-and-drop behavior. Search inherits Overview's tile styling and row layout, separate from the normal grid's compact styling. Overview's existing display is not moved or replaced. Opening the menu does not save or reset the layout. A popup-only position map splits native pages to fit its 15-item capacity. Intentional layout edits save the flattened order through GNOME's shared page manager, packed to Overview's capacity rather than the popup's. Popup-only gutters reserve the arrow targets rather than Overview's percentage-based page previews, leaving more space between tiles.
 
-GLib, Gio, GObject, GTK4, Libadwaita, and GSettings provide the platform APIs. Shell, St, Clutter, Mutter, and Shell JavaScript UI classes depend on the GNOME version and do not form a stable extension ABI. Private integrations include Dash internals, Overview Dash visibility/height, panel containers, Quick Settings actor paths and grid metadata, and application menus. The popup display initializes GNOME's base app view with owned signal connections and shares Overview's page manager. Its grid uses popup-only dimensions, while native folder dialogs move to the visible UI group. The adapter handles native folder-drag placeholders and clears page-switch timers when a folder unmaps during a drag. Closing during a drag completes native drag cancellation before unmapping. These integrations require review against each GNOME release. Support is limited to GNOME 50.
+GLib, Gio, GObject, GTK4, Libadwaita, and GSettings provide the platform APIs. Shell, St, Clutter, Mutter, and Shell JavaScript UI classes depend on the GNOME version and do not form a stable extension ABI. Private integrations include Dash internals, Overview Dash visibility/height, panel containers, Quick Settings actor paths and grid metadata, and application menus. The popup display initializes GNOME's base app view with owned signal connections and shares Overview's page manager. Its grid uses popup-only dimensions, while native folder dialogs move to the visible UI group. The adapter handles native folder-drag placeholders and clears page-switch timers when a folder unmaps during a drag. Closing during a drag completes native drag cancellation before unmapping. These integrations require review against each GNOME release.
 
 Application catalog work yields after a three-millisecond budget per idle dispatch. Search uses GNOME's cached native search and reuses result actors without rebuilding unchanged queries. Its actor cache is bounded by the application catalog. The native grid retains its own icons and pages. Updates are triggered by settings, applications, favorites, themes, monitors, workspaces, and window state, not polling. Native animations and reduced-animation behavior remain in GNOME's control.
 

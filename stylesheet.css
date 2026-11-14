@@ -171,7 +171,7 @@
     box-shadow: inset 0 0 0 100px rgba(34, 34, 38, 0.32);
 }
 
-/* St does not support :not(). Match GNOME 50's :overview colors explicitly
+/* St does not support :not(). Match GNOME :overview colors explicitly
    while leaving its transition durations and panel state changes untouched. */
 #panel.panthea-panel:overview,
 #panel.panthea-panel.panthea-surface:overview,
